@@ -40,16 +40,18 @@ def past_realized_volatility_per_stock(list_file,prediction_column_name):
                                      realized_volatility_per_time_id(file,prediction_column_name)])
     return df_past_realized
 
-def stupidForestPrediction(list_file,prediction_column_name,targets,tests_files):
-    naive_predictions_train = past_realized_volatility_per_stock(list_file=list_file,prediction_column_name=prediction_column_name)
-    X = naive_predictions_train['pred'].reshape(-1,1)
-    y = targets['target'].reshape(-1,1)
+def stupidForestPrediction(book_path_train,prediction_column_name,train_targets_pd,book_path_test):
+    naive_predictions_train = past_realized_volatility_per_stock(list_file=book_path_train,prediction_column_name=prediction_column_name)
+    df_joined_train = train_targets_pd.merge(naive_predictions_train[['row_id','pred']], on = ['row_id'], how = 'left')
     
+    X = np.array(df_joined_train['pred']).reshape(-1,1)
+    y = np.array(df_joined_train['target']).reshape(-1,)
+
     regr = RandomForestRegressor(random_state=0)
     regr.fit(X, y)
     
-    naive_predictions_test = past_realized_volatility_per_stock(list_file=tests_files,prediction_column_name='target')
-    yhat = regr.predict(naive_predictions_tests['target'].reshape(-1,1))
+    naive_predictions_test = past_realized_volatility_per_stock(list_file=book_path_test,prediction_column_name='target')
+    yhat = regr.predict(np.array(naive_predictions_test['target']).reshape(-1,1))
     
     updated_predictions = naive_predictions_test.copy()
     updated_predictions['target'] = yhat
