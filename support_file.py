@@ -3,6 +3,9 @@ import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 
+def rmspe(y_true, y_pred):
+    return  (np.sqrt(np.mean(np.square((y_true - y_pred) / y_true))))
+
 def log_return(list_stock_prices): # Stock prices are estimated through wap values
     return np.log(list_stock_prices).diff() 
 
@@ -12,6 +15,14 @@ def realized_volatility(series_log_return):
 def compute_wap(book_pd):
     wap = (book_pd['bid_price1'] * book_pd['ask_size1'] + book_pd['ask_price1'] * book_pd['bid_size1']) / (book_pd['bid_size1']+ book_pd['ask_size1'])
     return wap
+
+def realized_volatility_from_book_pd(book_stock_time):
+    
+    wap = compute_wap(book_stock_time)
+    returns = log_return(wap)
+    volatility = realized_volatility(returns)
+    
+    return volatility
 
 def realized_volatility_per_time_id(file_path, prediction_column_name):
     df_book_data = pd.read_parquet(file_path)
