@@ -2,6 +2,8 @@
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
+import nolds
+from scipy.interpolate import interp1d
 
 def rmspe(y_true, y_pred):
     return  (np.sqrt(np.mean(np.square((y_true - y_pred) / y_true))))
@@ -52,6 +54,42 @@ def past_realized_volatility_per_stock(list_file,prediction_column_name):
     return df_past_realized
 
 def stupidForestPrediction(book_path_train,prediction_column_name,train_targets_pd,book_path_test):
+    naive_predictions_train = past_realized_volatility_per_stock(list_file=book_path_train,prediction_column_name=prediction_column_name)
+    df_joined_train = train_targets_pd.merge(naive_predictions_train[['row_id','pred']], on = ['row_id'], how = 'left')
+    
+    X = np.array(df_joined_train['pred']).reshape(-1,1)
+    y = np.array(df_joined_train['target']).reshape(-1,)
+
+    regr = RandomForestRegressor(random_state=0)
+    regr.fit(X, y)
+    
+    naive_predictions_test = past_realized_volatility_per_stock(list_file=book_path_test,prediction_column_name='target')
+    yhat = regr.predict(np.array(naive_predictions_test['target']).reshape(-1,1))
+    
+    updated_predictions = naive_predictions_test.copy()
+    updated_predictions['target'] = yhat
+    
+    return updated_predictions
+
+def entropy_from_book(book_stock_time,last_min):
+        
+    if last_min < 10:
+        book_stock_time = book_stock_time[book_stock_time['seconds_in_bucket'] >= (600-last_min*60)]
+        
+    wap = compute_wap(book_stock_time)
+    t_init = book_stock_time['seconds_in_bucket']
+    t_new = np.arange(np.min(t_init),np.max(t_init))
+        
+    # Closest neighbour interpolation (no changes in wap between lines)
+    nearest = interp1d(t_init, wap, kind='nearest')
+    resampled_wap = nearest(t_new)
+    
+    # Compute sample entropy
+    sampleEntropy = nolds.sampen(resampled_wap)
+    
+    return sampleEntropy
+
+def entropy_Prediction(book_path_train,prediction_column_name,train_targets_pd,book_path_test):
     naive_predictions_train = past_realized_volatility_per_stock(list_file=book_path_train,prediction_column_name=prediction_column_name)
     df_joined_train = train_targets_pd.merge(naive_predictions_train[['row_id','pred']], on = ['row_id'], how = 'left')
     
