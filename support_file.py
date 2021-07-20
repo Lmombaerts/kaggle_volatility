@@ -75,7 +75,7 @@ def entropy_from_book(book_stock_time,last_min):
     
     if last_min < 10:
         book_stock_time = book_stock_time[book_stock_time['seconds_in_bucket'] >= (600-last_min*60)]
-        if book_stock_time.empty == True or book_stock_time.shape[0] < 2:
+        if book_stock_time.empty == True or book_stock_time.shape[0] < 3:
             return 0
         
     wap = compute_wap(book_stock_time)
