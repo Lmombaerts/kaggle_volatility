@@ -91,6 +91,36 @@ def entropy_from_book(book_stock_time,last_min):
     
     return sampleEntropy
 
+def linearFit(book_stock_time, last_min):
+    
+    if last_min < 10:
+        book_stock_time = book_stock_time[book_stock_time['seconds_in_bucket'] >= (600-last_min*60)]
+        if book_stock_time.empty == True or book_stock_time.shape[0] < 2:
+            return 0
+        
+    wap = np.array(compute_wap(book_stock_time))
+    t_init = book_stock_time['seconds_in_bucket']
+    
+    return (wap[-1] - wap[0])/(np.max(t_init) - np.min(t_init))
+
+def wapStat(book_stock_time, last_min):
+    
+    if last_min < 10:
+        book_stock_time = book_stock_time[book_stock_time['seconds_in_bucket'] >= (600-last_min*60)]
+        if book_stock_time.empty == True or book_stock_time.shape[0] < 2:
+            return 0
+        
+    wap = compute_wap(book_stock_time)
+    t_init = book_stock_time['seconds_in_bucket']
+    t_new = np.arange(np.min(t_init),np.max(t_init)) 
+    
+    # Closest neighbour interpolation (no changes in wap between lines)
+    nearest = interp1d(t_init, wap, kind='nearest')
+    resampled_wap = nearest(t_new)
+    
+    return np.std(resampled_wap)
+
+
 def entropy_Prediction(book_path_train,prediction_column_name,train_targets_pd,book_path_test):
     naive_predictions_train = past_realized_volatility_per_stock(list_file=book_path_train,prediction_column_name=prediction_column_name)
     df_joined_train = train_targets_pd.merge(naive_predictions_train[['row_id','pred']], on = ['row_id'], how = 'left')
