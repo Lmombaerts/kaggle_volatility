@@ -136,7 +136,7 @@ def entropy_Prediction(book_path_train,prediction_column_name,train_targets_pd,b
     book_features_encoded_train = computeFeatures_1(book_path_train,'train',train_targets_pd,all_stocks_ids)
     
     X = book_features_encoded_train.drop(['row_id','target','stock_id'],axis=1)
-    y = book_all_features_encoded['target']
+    y = book_features_encoded_train['target']
     
     # Modeling
     catboost_default = CatBoostRegressor(verbose=0)
