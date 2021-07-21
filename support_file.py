@@ -1,8 +1,8 @@
 
 import pandas as pd
 import numpy as np
+import math
 
-import nolds
 from scipy.interpolate import interp1d
 import time 
 
@@ -10,6 +10,7 @@ from sklearn.ensemble import RandomForestRegressor
 import xgboost as xgb
 from lightgbm import LGBMRegressor
 from catboost import CatBoostRegressor
+from information_measures import *
 
 def rmspe(y_true, y_pred):
     return  (np.sqrt(np.mean(np.square((y_true - y_pred) / y_true))))
@@ -93,10 +94,11 @@ def entropy_from_book(book_stock_time,last_min):
     resampled_wap = nearest(t_new)
     
     # Compute sample entropy
-    sampleEntropy = nolds.sampen(resampled_wap)
+    # sampleEntropy = nolds.sampen(resampled_wap)
+    sampleEntropy = sampen(resampled_wap)
     
     return sampleEntropy
-
+    
 def linearFit(book_stock_time, last_min):
     
     if last_min < 10:
