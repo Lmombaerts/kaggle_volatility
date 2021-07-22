@@ -98,7 +98,42 @@ def entropy_from_book(book_stock_time,last_min):
     sampleEntropy = sampen(resampled_wap)
     
     return sampleEntropy
+
+def entropy_from_wap(wap,seconds,last_seconds):
     
+    if last_seconds < 600:
+        idx = np.where(seconds >= last_seconds)[0]
+        if len(idx) < 3:
+            return 0
+        else:
+            wap = wap[idx]
+            seconds = seconds[idx]
+    
+    # Closest neighbour interpolation (no changes in wap between lines)
+    t_new = np.arange(np.min(seconds),np.max(seconds))
+    nearest = interp1d(seconds, wap, kind='nearest')
+    resampled_wap = nearest(t_new)
+    
+    # Compute sample entropy
+    # sampleEntropy = nolds.sampen(resampled_wap)
+    sampleEntropy = sampen(resampled_wap)
+    # sampleEntropy = ApEn_new(resampled_wap,3,0.001)
+    
+    return sampleEntropy
+    
+def ApEn_new(U, m, r):
+    U = np.array(U)
+    N = U.shape[0]
+            
+    def _phi(m):
+        z = N - m + 1.0
+        x = np.array([U[i:i+m] for i in range(int(z))])
+        X = np.repeat(x[:, np.newaxis], 1, axis=2)
+        C = np.sum(np.absolute(x - X).max(axis=2) <= r, axis=0) / z
+        return np.log(C).sum() / z
+    
+    return abs(_phi(m + 1) - _phi(m))
+
 def linearFit(book_stock_time, last_min):
     
     if last_min < 10:
