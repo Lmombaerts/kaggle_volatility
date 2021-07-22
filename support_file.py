@@ -133,6 +133,7 @@ def entropy_Prediction(book_path_train,prediction_column_name,train_targets_pd,b
     
     # Compute features
     book_features_encoded_test = computeFeatures_1(book_path_test,'test',test_file,all_stocks_ids) 
+    
     book_features_encoded_train = computeFeatures_1(book_path_train,'train',train_targets_pd,all_stocks_ids)
     
     X = book_features_encoded_train.drop(['row_id','target','stock_id'],axis=1)
@@ -143,8 +144,8 @@ def entropy_Prediction(book_path_train,prediction_column_name,train_targets_pd,b
     catboost_default.fit(X,y)
     
     # Predict
-    X_test = book_features_encoded_test.drop(['row_id','stock_id'])
-    yhat = model.predict(X_test)
+    X_test = book_features_encoded_test.drop(['row_id','stock_id'],axis=1)
+    yhat = catboost_default.predict(X_test)
     
     # Formatting
     yhat_pd = pd.DataFrame(yhat,columns=['target'])
