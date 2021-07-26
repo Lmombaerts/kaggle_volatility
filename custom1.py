@@ -2,6 +2,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
+from arch import arch_model
 
 def log_return(list_stock_prices): # Stock prices are estimated through wap values
     return np.log(list_stock_prices).diff() 
@@ -57,3 +58,67 @@ def stupidForestPrediction(book_path_train,prediction_column_name,train_targets_
     updated_predictions['target'] = yhat
     
     return updated_predictions
+
+
+# GARCH PREDICTIONS
+
+def garch_fit_predict_volatility(returns_series, N=10000):
+    model = arch_model(returns_series * N, p=1, q=1)
+    model_fit = model.fit(update_freq=0, disp='off')
+    yhat = model_fit.forecast(horizon=600, reindex=False)
+    
+    pred_volatility = np.sqrt(np.sum(yhat.variance.values)) / N
+    
+    return pred_volatility
+
+def garch_volatility_per_time_id(file_path, prediction_column_name):
+    # read the data
+    df_book_data = pd.read_parquet(file_path) 
+    
+    # calculate the midprice (not the WAP)  
+    df_book_data['midprice'] =(df_book_data['bid_price1'] + df_book_data['ask_price1'])/2
+    
+    # leave only WAP for now
+    df_book_data = df_book_data[['time_id', 'seconds_in_bucket', 'midprice']]
+    df_book_data = df_book_data.sort_values('seconds_in_bucket')
+    
+    # make the book updates evenly spaced
+    df_book_data_evenly = pd.DataFrame({'time_id':np.repeat(df_book_data['time_id'].unique(), 600), 
+                                        'second':np.tile(range(0,600), df_book_data['time_id'].nunique())})
+    df_book_data_evenly['second'] = df_book_data_evenly['second'].astype(np.int16)
+    df_book_data_evenly = df_book_data_evenly.sort_values('second')
+    
+    
+    df_book_data_evenly = pd.merge_asof(df_book_data_evenly,
+                           df_book_data,
+                           left_on='second',right_on='seconds_in_bucket',
+                           by = 'time_id')
+
+    # Ordering for easier use
+    df_book_data_evenly = df_book_data_evenly[['time_id', 'second', 'midprice']]
+    df_book_data_evenly = df_book_data_evenly.sort_values(['time_id','second']).reset_index(drop=True)
+    
+    
+    # calculate log returns 
+    df_book_data_evenly['log_return'] = df_book_data_evenly.groupby(['time_id'])['midprice'].apply(log_return)
+    df_book_data_evenly = df_book_data_evenly[~df_book_data_evenly['log_return'].isnull()]
+
+    
+    # fit GARCH(1, 1) and predict the volatility of returns
+    df_garch_vol_per_stock =  \
+        pd.DataFrame(df_book_data_evenly.groupby(['time_id'])['log_return'].agg(garch_fit_predict_volatility)).reset_index()
+    df_garch_vol_per_stock = df_garch_vol_per_stock.rename(columns = {'log_return':prediction_column_name})
+    
+    # add row_id column to the data
+    stock_id = file_path.split('=')[1]
+    df_garch_vol_per_stock['row_id'] = df_garch_vol_per_stock['time_id'].apply(lambda x:f'{stock_id}-{x}')
+    
+    # return the result
+    return df_garch_vol_per_stock[['row_id', prediction_column_name]]
+
+def garch_volatility_per_stock(list_file, prediction_column_name):
+    df_garch_predicted = pd.DataFrame()
+    for file in list_file:
+        df_garch_predicted = pd.concat([df_garch_predicted,
+                                     garch_volatility_per_time_id(file, prediction_column_name)])
+    return df_garch_predicted
