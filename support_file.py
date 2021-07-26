@@ -13,6 +13,8 @@ from lightgbm import LGBMRegressor
 from catboost import CatBoostRegressor
 from information_measures import *
 
+from arch import arch_model
+
 def rmspe(y_true, y_pred):
     return  (np.sqrt(np.mean(np.square((y_true - y_pred) / y_true))))
 
