@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 import math
@@ -1233,8 +1232,8 @@ def computeFeatures_newTest_Laurent_wTrades(machine, dataset, all_stocks_ids, da
         book_stock['wap'] = calc_wap(book_stock)
         book_stock['wap2'] = calc_wap2(book_stock)
         book_stock['wap3'] = calc_wap3(book_stock)
-        book_stock['wap4'] = calc_wap2(book_stock)
-        book_stock['mid_price'] = calc_wap3(book_stock)
+        book_stock['wap4'] = calc_wap4(book_stock)
+        book_stock['mid_price'] = mid_price(book_stock)
 
         # Calculate past realized volatility per time_id
         df_sub = book_stock.groupby('time_id')['wap'].agg(calc_rv_from_wap_numba, engine='numba').to_frame().reset_index()
@@ -1446,3 +1445,212 @@ def fin_metrics_trades_data(df):
     amihud = np.abs(np.sum(df['log_return'])) / np.sum(df['size'])
     
     return [roll_measure, roll_impact, mkt_impact, amihud]
+
+def computeFeatures_2807(machine, dataset, all_stocks_ids, datapath):
+    
+    list_rv, list_rv2, list_rv3 = [], [], []
+
+    for stock_id in range(127):
+        
+        start = time.time()
+        
+        if machine == 'local':
+            try:
+                book_stock = load_book_data_by_id(stock_id,datapath,dataset)
+                trades_stock = load_trades_data_by_id(stock_id,datapath,dataset)
+            except:
+                continue
+        elif machine == 'kaggle':
+            try:
+                book_stock = load_book_data_by_id_kaggle(stock_id,dataset)
+                trades_stock = load_trades_data_by_id_kaggle(stock_id,dataset)
+            except:
+                continue
+        
+        # Useful
+        all_time_ids_byStock = book_stock['time_id'].unique() 
+
+        # Book processing
+        # Last 10 minutes
+        # Last 8 minutes
+        # Last 5 minutes
+        # Last 2 minutes
+        
+        # Add to list of features
+        
+        # Trades processing
+        # Last 10 minutes
+        # Last 8 minutes
+        # Last 5 minutes
+        # Last 2 minutes
+        
+        # Add to list of features
+        
+        # Calculate past realized volatility per time_id
+        df_sub = book_stock.groupby('time_id')['wap'].agg(calc_rv_from_wap_numba, engine='numba').to_frame().reset_index()
+        df_sub2 = book_stock.groupby('time_id')['wap2'].agg(calc_rv_from_wap_numba, engine='numba').to_frame().reset_index()
+        df_sub3 = book_stock.groupby('time_id')['wap3'].agg(calc_rv_from_wap_numba, engine='numba').to_frame().reset_index()
+        df_sub4 = book_stock.groupby('time_id')['wap4'].agg(calc_rv_from_wap_numba, engine='numba').to_frame().reset_index()
+        df_sub5 = book_stock.groupby('time_id')['mid_price'].agg(calc_rv_from_wap_numba, engine='numba').to_frame().reset_index()
+        
+        df_sub['time_id'] = [f'{stock_id}-{time_id}' for time_id in df_sub['time_id']]
+        df_sub = df_sub.rename(columns={'time_id':'row_id'})
+        
+        df_sub = pd.concat([df_sub,df_sub2['wap2'],df_sub3['wap3'], df_sub4['wap4'], df_sub5['mid_price']],axis=1)
+        df_sub = df_sub.rename(columns={'wap': 'rv', 'wap2': 'rv2', 'wap3': 'rv3', 'wap4':'rv4','mid_price':'rv5'})
+        
+        list_rv.append(df_sub)
+        
+        # Query segments
+        bucketQuery480 = book_stock.query(f'seconds_in_bucket >= 480')
+        isEmpty480 = bucketQuery480.empty
+        
+        bucketQuery300 = book_stock.query(f'seconds_in_bucket >= 300')
+        isEmpty300 = bucketQuery300.empty
+        
+        times_pd = pd.DataFrame(all_time_ids_byStock,columns=['time_id'])
+        times_pd['time_id'] = [f'{stock_id}-{time_id}' for time_id in times_pd['time_id']]
+        times_pd = times_pd.rename(columns={'time_id':'row_id'})
+        
+        # Calculate past realized volatility per time_id and query subset
+        if isEmpty300 == False:
+            df_sub_300 = bucketQuery300.groupby(['time_id'])['wap'].agg(calc_rv_from_wap_numba, engine='numba').to_frame().reset_index()
+            df_sub2_300 = bucketQuery300.groupby(['time_id'])['wap2'].agg(calc_rv_from_wap_numba, engine='numba').to_frame().reset_index()
+            df_sub3_300 = bucketQuery300.groupby(['time_id'])['wap3'].agg(calc_rv_from_wap_numba, engine='numba').to_frame().reset_index()
+            df_sub4_300 = bucketQuery300.groupby(['time_id'])['wap4'].agg(calc_rv_from_wap_numba, engine='numba').to_frame().reset_index()
+            df_sub5_300 = bucketQuery300.groupby(['time_id'])['mid_price'].agg(calc_rv_from_wap_numba, engine='numba').to_frame().reset_index()
+            
+
+            df_sub_300 = pd.concat([times_pd,df_sub_300['wap'],df_sub2_300['wap2'],df_sub3_300['wap3'],df_sub4_300['wap4'],df_sub5_300['mid_price']],axis=1)
+            df_sub_300 = df_sub_300.rename(columns={'wap': 'rv_300', 'wap2': 'rv2_300', 'wap3': 'rv3_300', 'wap4':'rv4_300','mid_price':'rv5_300'})
+            
+        else: # 0 volatility
+            
+            zero_rv = pd.DataFrame(np.zeros((1,times_pd.shape[0])),columns=['rv_300'])
+            zero_rv2 = pd.DataFrame(np.zeros((1,times_pd.shape[0])),columns=['rv2_300'])
+            zero_rv3 = pd.DataFrame(np.zeros((1,times_pd.shape[0])),columns=['rv3_300'])
+            zero_rv4 = pd.DataFrame(np.zeros((1,times_pd.shape[0])),columns=['rv4_300'])
+            zero_rv5 = pd.DataFrame(np.zeros((1,times_pd.shape[0])),columns=['rv5_300'])
+            df_sub_300 = pd.concat([times_pd,zero_rv,zero_rv2,zero_rv3,zero_rv4,zero_rv5],axis=1) 
+            
+        list_rv2.append(df_sub_300)
+        
+        # Calculate realized volatility last 2 min
+        if isEmpty480 == False:
+            df_sub_480 = bucketQuery480.groupby(['time_id'])['wap'].agg(calc_rv_from_wap_numba, engine='numba').to_frame().reset_index()
+            df_sub2_480 = bucketQuery480.groupby(['time_id'])['wap2'].agg(calc_rv_from_wap_numba, engine='numba').to_frame().reset_index()
+            df_sub3_480 = bucketQuery480.groupby(['time_id'])['wap3'].agg(calc_rv_from_wap_numba, engine='numba').to_frame().reset_index()
+            df_sub4_480 = bucketQuery480.groupby(['time_id'])['wap4'].agg(calc_rv_from_wap_numba, engine='numba').to_frame().reset_index()
+            df_sub5_480 = bucketQuery480.groupby(['time_id'])['mid_price'].agg(calc_rv_from_wap_numba, engine='numba').to_frame().reset_index()
+            
+
+            df_sub_480 = pd.concat([times_pd,df_sub_480['wap'],df_sub2_480['wap2'],df_sub3_480['wap3'],df_sub4_480['wap4'],df_sub5_480['mid_price']],axis=1)
+            df_sub_480 = df_sub_480.rename(columns={'wap': 'rv_480', 'wap2': 'rv2_480', 'wap3': 'rv3_480', 'wap4':'rv4_480','mid_price':'rv5_480'})
+            
+        else: # 0 volatility
+            
+            zero_rv = pd.DataFrame(np.zeros((1,times_pd.shape[0])),columns=['rv_480'])
+            zero_rv2 = pd.DataFrame(np.zeros((1,times_pd.shape[0])),columns=['rv2_480'])
+            zero_rv3 = pd.DataFrame(np.zeros((1,times_pd.shape[0])),columns=['rv3_480'])
+            zero_rv4 = pd.DataFrame(np.zeros((1,times_pd.shape[0])),columns=['rv4_480'])
+            zero_rv5 = pd.DataFrame(np.zeros((1,times_pd.shape[0])),columns=['rv5_480'])
+            df_sub_480 = pd.concat([times_pd,zero_rv,zero_rv2,zero_rv3,zero_rv4,zero_rv5],axis=1) 
+
+        
+        list_rv3.append(df_sub_480)
+        
+        print('Computing one stock took', time.time() - start, 'seconds for stock ', stock_id)
+
+    # Create features dataframe
+    df_submission = pd.concat(list_rv)
+    df_submission2 = pd.concat(list_rv2)
+    df_submission3 = pd.concat(list_rv3)
+    
+    df_book_features = df_submission.merge(df_submission2, on = ['row_id'], how='left').fillna(0)
+    df_book_features = df_book_features.merge(df_submission3, on = ['row_id'], how='left').fillna(0)
+    
+    return df_book_features
+
+def book_preprocessor(book_stock, stock_id):
+    
+    # Calculate wap for the entire book
+    book_stock['wap'] = calc_wap(book_stock)
+    book_stock['wap2'] = calc_wap2(book_stock)
+    book_stock['wap3'] = calc_wap3(book_stock)
+    book_stock['wap4'] = calc_wap4(book_stock)
+    book_stock['mid_price'] = mid_price(book_stock)
+        
+    # Calculate log returns
+    book_stock['log_return1'] = book_stock.groupby(['time_id'])['wap1'].apply(log_return)
+    book_stock['log_return2'] = book_stock.groupby(['time_id'])['wap2'].apply(log_return)
+    book_stock['log_return3'] = book_stock.groupby(['time_id'])['wap3'].apply(log_return)
+    book_stock['log_return4'] = book_stock.groupby(['time_id'])['wap4'].apply(log_return)
+    book_stock['log_returnMidprice'] = book_stock.groupby(['time_id'])['mid_price'].apply(log_return)
+    
+    # Wap imbalances
+    book_stock['wap_imbalance1'] = book_stock['wap'] - book_stock['wap2']
+    book_stock['wap_imbalance2'] = book_stock['wap3'] - book_stock['wap4']
+    
+    # Spread
+    book_stock['price_spread'] = (book_stock['ask_price1'] - book_stock['bid_price1']) / ((book_stock['ask_price1'] + book_stock['bid_price1'])/2)
+    book_stock['bid_spread'] = book_stock['bid_price1'] - book_stock['bid_price2']  
+    book_stock['ask_spread'] = book_stock['ask_price1'] - book_stock['ask_price2'] 
+    book_stock['total_volume'] = (df['ask_size1'] + df['ask_size2']) + (df['bid_size1'] + df['bid_size2'])
+    book_stock['volume_imbalance'] = abs((df['ask_size1'] + df['ask_size2']) - (df['bid_size1'] + df['bid_size2']))
+    
+    # Dictionnary for aggregations
+    create_feature_dict = {
+        'wap1': [np.sum, np.mean, np.std],
+        'wap2': [np.sum, np.mean, np.std],
+        'wap3': [np.sum, np.mean, np.std],
+        'wap4': [np.sum, np.mean, np.std],
+        'mid_price': [np.sum, np.mean, np.std],
+        'log_return1': [np.sum, realized_volatility, np.mean, np.std],
+        'log_return2': [np.sum, realized_volatility, np.mean, np.std],
+        'log_return3': [np.sum, realized_volatility, np.mean, np.std],
+        'log_return4': [np.sum, realized_volatility, np.mean, np.std],
+        'log_returnMidprice': [np.sum, realized_volatility, np.mean, np.std],
+        'wap_balance1': [np.sum, np.mean, np.std],
+        'wap_balance2': [np.sum, np.mean, np.std],
+        'price_spread':[np.sum, np.mean, np.std],
+        'bid_spread':[np.sum, np.mean, np.std],
+        'ask_spread':[np.sum, np.mean, np.std],
+        'total_volume':[np.sum, np.mean, np.std],
+        'volume_imbalance':[np.sum, np.mean, np.std]
+    }
+    
+    # Function to get group stats for different windows (seconds in bucket)
+    def get_stats_window(seconds_in_bucket, add_suffix = False):
+        
+        # Group by the window
+        df_feature = df[df['seconds_in_bucket'] >= seconds_in_bucket].groupby(['time_id']).agg(create_feature_dict).reset_index()
+        
+        # Rename columns joining suffix
+        df_feature.columns = ['_'.join(col) for col in df_feature.columns]
+        
+        # Add a suffix to differentiate windows
+        if add_suffix:
+            df_feature = df_feature.add_suffix('_' + str(seconds_in_bucket))
+        
+        return df_feature
+
+    # Get the stats for different windows
+    df_feature = get_stats_window(seconds_in_bucket = 0, add_suffix = False)
+    df_feature_480 = get_stats_window(seconds_in_bucket = 480, add_suffix = True)
+    df_feature_300 = get_stats_window(seconds_in_bucket = 300, add_suffix = True)
+    df_feature_120 = get_stats_window(seconds_in_bucket = 120, add_suffix = True)
+    
+    # Merge all
+    df_feature = df_feature.merge(df_feature_480, how = 'left', left_on = 'time_id_', right_on = 'time_id__450')
+    df_feature = df_feature.merge(df_feature_300, how = 'left', left_on = 'time_id_', right_on = 'time_id__300')
+    df_feature = df_feature.merge(df_feature_120, how = 'left', left_on = 'time_id_', right_on = 'time_id__150')
+    # Drop unnecesary time_ids
+    df_feature.drop(['time_id__480', 'time_id__300', 'time_id__120'], axis = 1, inplace = True)
+    
+    # Create row_id so we can merge
+    df_feature['row_id'] = df_feature['time_id_'].apply(lambda x: f'{stock_id}-{x}')
+    df_feature.drop(['time_id_'], axis = 1, inplace = True)
+    
+    return df_feature
+
+
