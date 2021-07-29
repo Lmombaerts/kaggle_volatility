@@ -1433,37 +1433,37 @@ def computeFeatures_2807(machine, dataset, all_stocks_ids, datapath):
         trades_features_list.append(trades_features_df)
                 
         # Function to compute specific book features
-        def runFinMetrics_book(last_sec, init_pd):
-            bookQuery = book_stock.query(f'seconds_in_bucket >= {last_sec}')
-            isEmpty_book = bookQuery.empty
-            if isEmpty_book == False:
-                features = bookQuery.groupby(['time_id']).apply(fin_metrics_book_data).to_frame().reset_index()
-                features = features.rename(columns={0:'embedding'})
-                features[['spread','depth_imb']] = pd.DataFrame(features.embedding.tolist(), index=features.index)
-                features['time_id'] = [f'{stock_id}-{time_id}' for time_id in features['time_id']] 
-                features = features.rename(columns={'time_id':'row_id'}).drop(['embedding'],axis=1)
-            else:
-                features = init_pd.copy()
-                for col in features.columns:
-                    features[col].values[:] = 0
-                
-            return features
+        #def runFinMetrics_book(last_sec, init_pd):
+        #    bookQuery = book_stock.query(f'seconds_in_bucket >= {last_sec}')
+        #    isEmpty_book = bookQuery.empty
+        #    if isEmpty_book == False:
+        #        features = bookQuery.groupby(['time_id']).apply(fin_metrics_book_data).to_frame().reset_index()
+        #        features = features.rename(columns={0:'embedding'})
+        #        features[['spread','depth_imb']] = pd.DataFrame(features.embedding.tolist(), index=features.index)
+        #        features['time_id'] = [f'{stock_id}-{time_id}' for time_id in features['time_id']] 
+        #        features = features.rename(columns={'time_id':'row_id'}).drop(['embedding'],axis=1)
+        #    else:
+        #        features = init_pd.copy()
+        #        for col in features.columns:
+        #            features[col].values[:] = 0
+        #        
+        #    return features
         
         # Specific features
-        finMetrics_features_df = book_stock.groupby(['time_id']).apply(fin_metrics_book_data).to_frame().reset_index()
-        finMetrics_features_df = finMetrics_features_df.rename(columns={0:'embedding'})
-        finMetrics_features_df[['spread','depth_imb']] = pd.DataFrame(finMetrics_features_df.embedding.tolist(), index=finMetrics_features_df.index)
-        finMetrics_features_df['time_id'] = [f'{stock_id}-{time_id}' for time_id in finMetrics_features_df['time_id']] 
-        finMetrics_features_df = finMetrics_features_df.rename(columns={'time_id':'row_id'}).drop(['embedding'],axis=1)
+        #finMetrics_features_df = book_stock.groupby(['time_id']).apply(fin_metrics_book_data).to_frame().reset_index()
+        #finMetrics_features_df = finMetrics_features_df.rename(columns={0:'embedding'})
+        #finMetrics_features_df[['spread','depth_imb']] = pd.DataFrame(finMetrics_features_df.embedding.tolist(), index=finMetrics_features_df.index)
+        #finMetrics_features_df['time_id'] = [f'{stock_id}-{time_id}' for time_id in finMetrics_features_df['time_id']] 
+        #finMetrics_features_df = finMetrics_features_df.rename(columns={'time_id':'row_id'}).drop(['embedding'],axis=1)
         
-        finMetrics_features_df_480 = runFinMetrics_book(last_sec = 480, init_pd = finMetrics_features_df)
-        finMetrics_features_df_300 = runFinMetrics_book(last_sec = 300, init_pd = finMetrics_features_df)
-        finMetrics_features_df_120 = runFinMetrics_book(last_sec = 120, init_pd = finMetrics_features_df)
+        #finMetrics_features_df_480 = runFinMetrics_book(last_sec = 480, init_pd = finMetrics_features_df)
+        #finMetrics_features_df_300 = runFinMetrics_book(last_sec = 300, init_pd = finMetrics_features_df)
+        #finMetrics_features_df_120 = runFinMetrics_book(last_sec = 120, init_pd = finMetrics_features_df)
         
-        finMetrics_features_list.append(finMetrics_features_df)
-        finMetrics_features_list_480.append(finMetrics_features_df_480)
-        finMetrics_features_list_300.append(finMetrics_features_df_300)
-        finMetrics_features_list_120.append(finMetrics_features_df_120)
+        #finMetrics_features_list.append(finMetrics_features_df)
+        #finMetrics_features_list_480.append(finMetrics_features_df_480)
+        #finMetrics_features_list_300.append(finMetrics_features_df_300)
+        #finMetrics_features_list_120.append(finMetrics_features_df_120)
         
         print('Computing one stock took', time.time() - start, 'seconds for stock ', stock_id)
 
@@ -1471,16 +1471,16 @@ def computeFeatures_2807(machine, dataset, all_stocks_ids, datapath):
     df_submission = pd.concat(book_features_list)
     df_submission2 = pd.concat(trades_features_list)
     
-    df_finMetrics = pd.concat(finMetrics_features_list)
-    df_finMetrics_480 = pd.concat(finMetrics_features_list_480)
-    df_finMetrics_300 = pd.concat(finMetrics_features_list_300)
-    df_finMetrics_120 = pd.concat(finMetrics_features_list_120)
+    #df_finMetrics = pd.concat(finMetrics_features_list)
+    #df_finMetrics_480 = pd.concat(finMetrics_features_list_480)
+    #df_finMetrics_300 = pd.concat(finMetrics_features_list_300)
+    #df_finMetrics_120 = pd.concat(finMetrics_features_list_120)
     
     df_features = df_submission.merge(df_submission2, on = ['row_id'], how = 'left').fillna(0)
-    df_features = df_features.merge(df_finMetrics, on = ['row_id'], how = 'left').fillna(0)
-    df_features = df_features.merge(df_finMetrics_480, on = ['row_id'], how = 'left').fillna(0)
-    df_features = df_features.merge(df_finMetrics_300, on = ['row_id'], how = 'left').fillna(0)
-    df_features = df_features.merge(df_finMetrics_120, on = ['row_id'], how = 'left').fillna(0)
+    #df_features = df_features.merge(df_finMetrics, on = ['row_id'], how = 'left').fillna(0)
+    #df_features = df_features.merge(df_finMetrics_480, on = ['row_id'], how = 'left').fillna(0)
+    #df_features = df_features.merge(df_finMetrics_300, on = ['row_id'], how = 'left').fillna(0)
+    #df_features = df_features.merge(df_finMetrics_120, on = ['row_id'], how = 'left').fillna(0)
     
     return df_features
 
@@ -1511,6 +1511,23 @@ def book_preprocessor(book_stock, stock_id):
     book_stock['total_volume'] = (book_stock['ask_size1'] + book_stock['ask_size2']) + (book_stock['bid_size1'] + book_stock['bid_size2'])
     book_stock['volume_imbalance'] = abs((book_stock['ask_size1'] + book_stock['ask_size2']) - (book_stock['bid_size1'] + book_stock['bid_size2']))
     
+    # Time Length (for next computation)
+    book_stock['time_length'] = book_stock['seconds_in_bucket'].diff()
+    book_stock.time_length = book_stock.time_length.shift(periods=-1)
+    book_stock.loc[len(book_stock)-1,'time_length'] = 600 - book_stock['seconds_in_bucket'].iloc[-1]
+    
+    # Spread
+    book_stock['spread'] = book_stock['ask_price1'] - book_stock['bid_price1']
+    book_stock['spread'] = book_stock['spread'] * book_stock['time_length'] / 600
+    
+    # Depth imbalance
+    book_stock['depth_imbalance'] = (book_stock['bid_size1']/(book_stock['mid_price']-book_stock['bid_price1']) + \
+                                  book_stock['bid_size2']/(book_stock['mid_price']-book_stock['bid_price2'])) / \
+                                 (book_stock['ask_size1']/(-book_stock['mid_price']+book_stock['ask_price1']) + \
+                                  book_stock['ask_size2']/(-book_stock['mid_price']+book_stock['ask_price2'])) 
+    
+    book_stock['depth_imbalance'] = book_stock['depth_imbalance'] * book_stock['time_length'] / 600
+    
     # Dictionnary for aggregations
     create_feature_dict = {
         'wap': [np.sum, np.mean, np.std],
@@ -1529,7 +1546,9 @@ def book_preprocessor(book_stock, stock_id):
         'bid_spread':[np.sum, np.mean, np.std],
         'ask_spread':[np.sum, np.mean, np.std],
         'total_volume':[np.sum, np.mean, np.std],
-        'volume_imbalance':[np.sum, np.mean, np.std]
+        'volume_imbalance':[np.sum, np.mean, np.std],
+        'spread' : [np.sum],
+        'depth_imbalance' : [np.sum]
     }
     
     # Function to get group stats for different windows (seconds in bucket)
@@ -1571,9 +1590,31 @@ def book_preprocessor(book_stock, stock_id):
     return df_feature
 
 
+def fin_metrics_trades_data(df):
+    
+    if 'order_count' not in df.columns:
+        sys.exit("Trades data format requred")
+        
+    df = df.copy()
+    
+    # compute neccessary cols
+    df['log_return'] = log_return(df['price'])
+    df['d_price']    = df['price'].diff()
+    df['d_price_l1'] = df['d_price'].shift(1)
+    
+    # compute metrics
+    roll_measure = 2 * np.sqrt(np.abs(df['d_price'].cov(df['d_price_l1'])))
+    roll_impact = roll_measure / (np.sum(df['price'] * df['size']))
+    mkt_impact = np.sum(np.abs(df['d_price'])) / np.sum(df['size'])
+    amihud = np.abs(np.sum(df['log_return'])) / np.sum(df['size'])
+    
+    return [roll_measure, roll_impact, mkt_impact, amihud]
+
 def trade_preprocessor(trades_stock, stock_id):
     
     trades_stock['log_return'] = trades_stock.groupby('time_id')['price'].apply(log_return)
+    trades_stock['d_price'] = trades_stock['price'].diff()
+    trades_stock['d_price_l1'] = trades_stock['d_price'].shift(1)
     
     # Dictionnary for aggregations
     create_feature_dict = {
@@ -1587,7 +1628,8 @@ def trade_preprocessor(trades_stock, stock_id):
     def get_stats_window(seconds_in_bucket, add_suffix = False):
         
         # Group by the window
-        df_feature = trades_stock[trades_stock['seconds_in_bucket'] >= seconds_in_bucket].groupby(['time_id']).agg(create_feature_dict).reset_index()
+        trades_stock_sub = trades_stock[trades_stock['seconds_in_bucket'] >= seconds_in_bucket]
+        df_feature = trades_stock_sub.groupby(['time_id']).agg(create_feature_dict).reset_index()
         
         # Rename columns joining suffix
         df_feature.columns = ['_'.join(col) for col in df_feature.columns]
@@ -1595,6 +1637,21 @@ def trade_preprocessor(trades_stock, stock_id):
         # Add a suffix to differentiate windows
         if add_suffix:
             df_feature = df_feature.add_suffix('_' + str(seconds_in_bucket))
+            
+        if trades_stock_sub.empty == False:
+            RM = 2 * np.sqrt(np.abs(trades_stock_sub['d_price'].cov(trades_stock_sub['d_price_l1'])))
+            roll_measure = pd.DataFrame([RM],columns=['roll_measure'])
+            roll_impact = pd.DataFrame([RM / (np.sum(trades_stock_sub['price'] * trades_stock_sub['size']))],columns=['roll_impact'])
+            mkt_impact = pd.DataFrame([np.sum(np.abs(trades_stock_sub['d_price'])) / np.sum(trades_stock_sub['size'])],columns=['mkt_impact'])
+            amihud = pd.DataFrame([np.abs(np.sum(trades_stock_sub['log_return'])) / np.sum(trades_stock_sub['size'])],columns=['amihud'])
+            df_feature = pd.concat([df_feature,roll_measure,roll_impact,mkt_impact,amihud],axis=1)
+        else:
+            roll_measure = pd.DataFrame([0],columns=['roll_measure']) 
+            roll_impact = pd.DataFrame([0],columns=['roll_impact'])
+            mkt_impact = pd.DataFrame([0],columns=['mkt_impact'])
+            amihud = pd.DataFrame([0],columns=['amihud'])
+            df_feature = pd.concat([df_feature,roll_measure,roll_impact,mkt_impact,amihud],axis=1)
+        
         return df_feature
     
     # Get the stats for different windows
@@ -1602,7 +1659,7 @@ def trade_preprocessor(trades_stock, stock_id):
     df_feature_480 = get_stats_window(seconds_in_bucket = 480, add_suffix = True)
     df_feature_300 = get_stats_window(seconds_in_bucket = 300, add_suffix = True)
     df_feature_120 = get_stats_window(seconds_in_bucket = 120, add_suffix = True)
-
+    
     # Merge all
     df_feature = df_feature.merge(df_feature_480, how = 'left', left_on = 'time_id_', right_on = 'time_id__480')
     df_feature = df_feature.merge(df_feature_300, how = 'left', left_on = 'time_id_', right_on = 'time_id__300')
@@ -1649,22 +1706,3 @@ def fin_metrics_book_data(df):
     
     return [spread, depth_imb]
 
-def fin_metrics_trades_data(df):
-    
-    if 'order_count' not in df.columns:
-        sys.exit("Trades data format requred")
-        
-    df = df.copy()
-    
-    # compute neccessary cols
-    df['log_return'] = log_return(df['price'])
-    df['d_price']    = df['price'].diff()
-    df['d_price_l1'] = df['d_price'].shift(1)
-    
-    # compute metrics
-    roll_measure = 2 * np.sqrt(np.abs(df['d_price'].cov(df['d_price_l1'])))
-    roll_impact = roll_measure / (np.sum(df['price'] * df['size']))
-    mkt_impact = np.sum(np.abs(df['d_price'])) / np.sum(df['size'])
-    amihud = np.abs(np.sum(df['log_return'])) / np.sum(df['size'])
-    
-    return [roll_measure, roll_impact, mkt_impact, amihud]
