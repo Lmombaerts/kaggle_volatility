@@ -1572,9 +1572,6 @@ def book_preprocessor(book_stock, stock_id):
     df_feature_300 = get_stats_window(seconds_in_bucket = 300, add_suffix = True)
     df_feature_120 = get_stats_window(seconds_in_bucket = 120, add_suffix = True)
     
-    # Other metrics
-    # spread, depth_imb = fin_metrics_book_data(book_stock)
-    
     # Merge all
     df_feature = df_feature.merge(df_feature_480, how = 'left', left_on = 'time_id_', right_on = 'time_id__480')
     df_feature = df_feature.merge(df_feature_300, how = 'left', left_on = 'time_id_', right_on = 'time_id__300')
@@ -1631,13 +1628,6 @@ def trade_preprocessor(trades_stock, stock_id):
         trades_stock_sub = trades_stock[trades_stock['seconds_in_bucket'] >= seconds_in_bucket]
         df_feature = trades_stock_sub.groupby(['time_id']).agg(create_feature_dict).reset_index()
         
-        # Rename columns joining suffix
-        df_feature.columns = ['_'.join(col) for col in df_feature.columns]
-        
-        # Add a suffix to differentiate windows
-        if add_suffix:
-            df_feature = df_feature.add_suffix('_' + str(seconds_in_bucket))
-            
         if trades_stock_sub.empty == False:
             RM = 2 * np.sqrt(np.abs(trades_stock_sub['d_price'].cov(trades_stock_sub['d_price_l1'])))
             roll_measure = pd.DataFrame([RM],columns=['roll_measure'])
@@ -1651,7 +1641,14 @@ def trade_preprocessor(trades_stock, stock_id):
             mkt_impact = pd.DataFrame([0],columns=['mkt_impact'])
             amihud = pd.DataFrame([0],columns=['amihud'])
             df_feature = pd.concat([df_feature,roll_measure,roll_impact,mkt_impact,amihud],axis=1)
+            
+        # Rename columns joining suffix
+        df_feature.columns = ['_'.join(col) for col in df_feature.columns]
         
+        # Add a suffix to differentiate windows
+        if add_suffix:
+            df_feature = df_feature.add_suffix('_' + str(seconds_in_bucket))
+            
         return df_feature
     
     # Get the stats for different windows
