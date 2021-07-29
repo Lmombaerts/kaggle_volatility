@@ -1401,7 +1401,8 @@ def computeFeatures_newTest_Laurent_wTrades(machine, dataset, all_stocks_ids, da
 def computeFeatures_2807(machine, dataset, all_stocks_ids, datapath):
     
     book_features_list, trades_features_list = [],[]
-
+    finMetrics_features_list, finMetrics_features_list_480, finMetrics_features_list_300, finMetrics_features_list_120 = [],[],[],[]
+    
     # Create parallel loop afterwards
     for stock_id in range(127):
         
@@ -1423,13 +1424,46 @@ def computeFeatures_2807(machine, dataset, all_stocks_ids, datapath):
         # Useful
         all_time_ids_byStock = book_stock['time_id'].unique() 
 
-        # Book processing
+        # Book stats processing
         book_features_df = book_preprocessor(book_stock, stock_id)
         book_features_list.append(book_features_df)
         
-        # Trades processing
+        # Trades stats processing
         trades_features_df = trade_preprocessor(trades_stock, stock_id)
         trades_features_list.append(trades_features_df)
+                
+        # Function to compute specific book features
+        def runFinMetrics_book(last_sec, init_pd):
+            bookQuery = book_stock.query(f'seconds_in_bucket >= {last_sec}')
+            isEmpty_book = bookQuery.empty
+            if isEmpty_book == False:
+                features = bookQuery.groupby(['time_id']).apply(fin_metrics_book_data).to_frame().reset_index()
+                features = features.rename(columns={0:'embedding'})
+                features[['spread','depth_imb']] = pd.DataFrame(features.embedding.tolist(), index=features.index)
+                features['time_id'] = [f'{stock_id}-{time_id}' for time_id in features['time_id']] 
+                features = features.rename(columns={'time_id':'row_id'}).drop(['embedding'],axis=1)
+            else:
+                features = init_pd.copy()
+                for col in features.columns:
+                    features[col].values[:] = 0
+                
+            return features
+        
+        # Specific features
+        finMetrics_features_df = book_stock.groupby(['time_id']).apply(fin_metrics_book_data).to_frame().reset_index()
+        finMetrics_features_df = finMetrics_features_df.rename(columns={0:'embedding'})
+        finMetrics_features_df[['spread','depth_imb']] = pd.DataFrame(finMetrics_features_df.embedding.tolist(), index=finMetrics_features_df.index)
+        finMetrics_features_df['time_id'] = [f'{stock_id}-{time_id}' for time_id in finMetrics_features_df['time_id']] 
+        finMetrics_features_df = finMetrics_features_df.rename(columns={'time_id':'row_id'}).drop(['embedding'],axis=1)
+        
+        finMetrics_features_df_480 = runFinMetrics_book(last_sec = 480, init_pd = finMetrics_features_df)
+        finMetrics_features_df_300 = runFinMetrics_book(last_sec = 300, init_pd = finMetrics_features_df)
+        finMetrics_features_df_120 = runFinMetrics_book(last_sec = 120, init_pd = finMetrics_features_df)
+        
+        finMetrics_features_list.append(finMetrics_features_df)
+        finMetrics_features_list_480.append(finMetrics_features_df_480)
+        finMetrics_features_list_300.append(finMetrics_features_df_300)
+        finMetrics_features_list_120.append(finMetrics_features_df_120)
         
         print('Computing one stock took', time.time() - start, 'seconds for stock ', stock_id)
 
@@ -1437,7 +1471,16 @@ def computeFeatures_2807(machine, dataset, all_stocks_ids, datapath):
     df_submission = pd.concat(book_features_list)
     df_submission2 = pd.concat(trades_features_list)
     
-    df_features = df_submission.merge(df_submission2, on = ['row_id'], how='left').fillna(0)
+    df_finMetrics = pd.concat(finMetrics_features_list)
+    df_finMetrics_480 = pd.concat(finMetrics_features_list_480)
+    df_finMetrics_300 = pd.concat(finMetrics_features_list_300)
+    df_finMetrics_120 = pd.concat(finMetrics_features_list_120)
+    
+    df_features = df_submission.merge(df_submission2, on = ['row_id'], how = 'left').fillna(0)
+    df_features = df_features.merge(df_finMetrics, on = ['row_id'], how = 'left').fillna(0)
+    df_features = df_features.merge(df_finMetrics_480, on = ['row_id'], how = 'left').fillna(0)
+    df_features = df_features.merge(df_finMetrics_300, on = ['row_id'], how = 'left').fillna(0)
+    df_features = df_features.merge(df_finMetrics_120, on = ['row_id'], how = 'left').fillna(0)
     
     return df_features
 
