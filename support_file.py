@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 import math
@@ -12,6 +11,7 @@ import xgboost as xgb
 from lightgbm import LGBMRegressor
 from catboost import CatBoostRegressor
 from information_measures import *
+from joblib import Parallel, delayed
 
 #from arch import arch_model
 
@@ -320,7 +320,7 @@ def calc_wap4(df):
     return (df['bid_price1'] * df['bid_size1'] + df['ask_price1'] * df['ask_size1']) / (df['bid_size1'] + df['ask_size1'])
 
 def mid_price(df):
-    return ((df['bid_price1'] + df['ask_price1']) / 2)
+    return df['bid_price1'] /2 + df['ask_price1'] / 2
 
 def calc_rv_from_wap_numba(values, index):
     log_return = np.diff(np.log(values))
@@ -1233,8 +1233,8 @@ def computeFeatures_newTest_Laurent_wTrades(machine, dataset, all_stocks_ids, da
         book_stock['wap'] = calc_wap(book_stock)
         book_stock['wap2'] = calc_wap2(book_stock)
         book_stock['wap3'] = calc_wap3(book_stock)
-        book_stock['wap4'] = calc_wap2(book_stock)
-        book_stock['mid_price'] = calc_wap3(book_stock)
+        book_stock['wap4'] = calc_wap4(book_stock)
+        book_stock['mid_price'] = mid_price(book_stock)
 
         # Calculate past realized volatility per time_id
         df_sub = book_stock.groupby('time_id')['wap'].agg(calc_rv_from_wap_numba, engine='numba').to_frame().reset_index()
@@ -1398,6 +1398,231 @@ def computeFeatures_newTest_Laurent_wTrades(machine, dataset, all_stocks_ids, da
     
     return df_book_features
 
+
+def computeFeatures_2807(machine, dataset, all_stocks_ids, datapath):
+    
+    # Create parallel function
+    def for_joblib(stock_id):
+             
+        if machine == 'local':
+            book_stock = load_book_data_by_id(stock_id,datapath,dataset)
+            trades_stock = load_trades_data_by_id(stock_id,datapath,dataset)
+            
+        elif machine == 'kaggle':
+            book_stock = load_book_data_by_id_kaggle(stock_id,dataset)
+            trades_stock = load_trades_data_by_id_kaggle(stock_id,dataset)
+        
+        # Useful
+        all_time_ids_byStock = book_stock['time_id'].unique() 
+
+        # Book stats processing
+        book_features_df = book_preprocessor(book_stock, stock_id)
+        
+        # Trades stats processing
+        trades_features_df = trade_preprocessor(trades_stock, stock_id)
+        
+        df_tmp = pd.merge(book_features_df, trades_features_df, on = 'row_id', how = 'left')
+        
+        return df_tmp 
+    
+    # Use parallel api to call paralle for loop
+    df = Parallel(n_jobs = -1, verbose = 1)(delayed(for_joblib)(stock_id) for stock_id in all_stocks_ids)
+    
+    # Concatenate all the dataframes that return from Parallel
+    df = pd.concat(df, ignore_index = True)
+    
+    return df
+
+def book_preprocessor(book_stock, stock_id):
+    
+    # Calculate wap for the entire book
+    book_stock['wap'] = calc_wap(book_stock)
+    book_stock['wap2'] = calc_wap2(book_stock)
+    book_stock['wap3'] = calc_wap3(book_stock)
+    book_stock['wap4'] = calc_wap4(book_stock)
+    book_stock['mid_price'] = mid_price(book_stock)
+        
+    # Calculate log returns
+    book_stock['log_return1'] = book_stock.groupby(['time_id'])['wap'].apply(log_return)
+    book_stock['log_return2'] = book_stock.groupby(['time_id'])['wap2'].apply(log_return)
+    book_stock['log_return3'] = book_stock.groupby(['time_id'])['wap3'].apply(log_return)
+    book_stock['log_return4'] = book_stock.groupby(['time_id'])['wap4'].apply(log_return)
+    book_stock['log_returnMidprice'] = book_stock.groupby(['time_id'])['mid_price'].apply(log_return)
+    
+    # Wap imbalances
+    book_stock['wap_imbalance1'] = book_stock['wap'] - book_stock['wap2']
+    book_stock['wap_imbalance2'] = book_stock['wap3'] - book_stock['wap4']
+    
+    # Spread
+    book_stock['price_spread'] = (book_stock['ask_price1'] - book_stock['bid_price1']) / ((book_stock['ask_price1'] + book_stock['bid_price1'])/2)
+    book_stock['bid_spread'] = book_stock['bid_price1'] - book_stock['bid_price2']  
+    book_stock['ask_spread'] = book_stock['ask_price1'] - book_stock['ask_price2'] 
+    book_stock['total_volume'] = (book_stock['ask_size1'] + book_stock['ask_size2']) + (book_stock['bid_size1'] + book_stock['bid_size2'])
+    book_stock['volume_imbalance'] = abs((book_stock['ask_size1'] + book_stock['ask_size2']) - (book_stock['bid_size1'] + book_stock['bid_size2']))
+    
+    # Time Length (for next computation)
+    book_stock['time_length'] = book_stock['seconds_in_bucket'].diff()
+    book_stock.time_length = book_stock.time_length.shift(periods=-1)
+    book_stock.loc[len(book_stock)-1,'time_length'] = 600 - book_stock['seconds_in_bucket'].iloc[-1]
+    
+    # Spread
+    book_stock['spread'] = book_stock['ask_price1'] - book_stock['bid_price1']
+    book_stock['spread'] = book_stock['spread'] * book_stock['time_length'] / 600
+    
+    # Depth imbalance
+    book_stock['depth_imbalance'] = (book_stock['bid_size1']/(book_stock['mid_price']-book_stock['bid_price1']) + \
+                                  book_stock['bid_size2']/(book_stock['mid_price']-book_stock['bid_price2'])) / \
+                                 (book_stock['ask_size1']/(-book_stock['mid_price']+book_stock['ask_price1']) + \
+                                  book_stock['ask_size2']/(-book_stock['mid_price']+book_stock['ask_price2'])) 
+    
+    book_stock['depth_imbalance'] = book_stock['depth_imbalance'] * book_stock['time_length'] / 600
+    
+    # Dictionnary for aggregations
+    create_feature_dict = {
+        'wap': [np.sum, np.mean, np.std],
+        'wap2': [np.sum, np.mean, np.std],
+        'wap3': [np.sum, np.mean, np.std],
+        'wap4': [np.sum, np.mean, np.std],
+        'mid_price': [np.sum, np.mean, np.std],
+        'log_return1': [np.sum, realized_volatility, np.mean, np.std],
+        'log_return2': [np.sum, realized_volatility, np.mean, np.std],
+        'log_return3': [np.sum, realized_volatility, np.mean, np.std],
+        'log_return4': [np.sum, realized_volatility, np.mean, np.std],
+        'log_returnMidprice': [np.sum, realized_volatility, np.mean, np.std],
+        'wap_imbalance1': [np.sum, np.mean, np.std],
+        'wap_imbalance2': [np.sum, np.mean, np.std],
+        'price_spread':[np.sum, np.mean, np.std],
+        'bid_spread':[np.sum, np.mean, np.std],
+        'ask_spread':[np.sum, np.mean, np.std],
+        'total_volume':[np.sum, np.mean, np.std],
+        'volume_imbalance':[np.sum, np.mean, np.std],
+        'spread' : [np.sum],
+        'depth_imbalance' : [np.sum]
+    }
+    
+    # Function to get group stats for different windows (seconds in bucket)
+    def get_stats_window(seconds_in_bucket, add_suffix = False):
+        
+        # Group by the window
+        df_feature = book_stock[book_stock['seconds_in_bucket'] >= seconds_in_bucket].groupby(['time_id']).agg(create_feature_dict).reset_index()
+        
+        # Rename columns joining suffix
+        df_feature.columns = ['_'.join(col) for col in df_feature.columns]
+        
+        # Add a suffix to differentiate windows
+        if add_suffix:
+            df_feature = df_feature.add_suffix('_' + str(seconds_in_bucket))
+        
+        return df_feature
+
+    # Get the stats for different windows
+    df_feature = get_stats_window(seconds_in_bucket = 0, add_suffix = False)
+    df_feature_480 = get_stats_window(seconds_in_bucket = 480, add_suffix = True)
+    df_feature_300 = get_stats_window(seconds_in_bucket = 300, add_suffix = True)
+    df_feature_120 = get_stats_window(seconds_in_bucket = 120, add_suffix = True)
+    
+    # Merge all
+    df_feature = df_feature.merge(df_feature_480, how = 'left', left_on = 'time_id_', right_on = 'time_id__480')
+    df_feature = df_feature.merge(df_feature_300, how = 'left', left_on = 'time_id_', right_on = 'time_id__300')
+    df_feature = df_feature.merge(df_feature_120, how = 'left', left_on = 'time_id_', right_on = 'time_id__120')
+    
+    # Drop unnecesary time_ids
+    df_feature.drop(['time_id__480', 'time_id__300', 'time_id__120'], axis = 1, inplace = True)
+    
+    # Create row_id so we can merge
+    df_feature['row_id'] = df_feature['time_id_'].apply(lambda x: f'{stock_id}-{x}')
+    df_feature.drop(['time_id_'], axis = 1, inplace = True)
+    
+    return df_feature
+
+
+def fin_metrics_trades_data(df):
+    
+    if 'order_count' not in df.columns:
+        sys.exit("Trades data format requred")
+        
+    df = df.copy()
+    
+    # compute neccessary cols
+    df['log_return'] = log_return(df['price'])
+    df['d_price']    = df['price'].diff()
+    df['d_price_l1'] = df['d_price'].shift(1)
+    
+    # compute metrics
+    roll_measure = 2 * np.sqrt(np.abs(df['d_price'].cov(df['d_price_l1'])))
+    roll_impact = roll_measure / (np.sum(df['price'] * df['size']))
+    mkt_impact = np.sum(np.abs(df['d_price'])) / np.sum(df['size'])
+    amihud = np.abs(np.sum(df['log_return'])) / np.sum(df['size'])
+    
+    return [roll_measure, roll_impact, mkt_impact, amihud]
+
+def trade_preprocessor(trades_stock, stock_id):
+    
+    trades_stock['log_return'] = trades_stock.groupby('time_id')['price'].apply(log_return)
+    trades_stock['d_price'] = trades_stock['price'].diff()
+    trades_stock['d_price_l1'] = trades_stock['d_price'].shift(1)
+    
+    # Dictionnary for aggregations
+    create_feature_dict = {
+        'log_return':[realized_volatility],
+        'seconds_in_bucket':[count_unique],
+        'size':[np.sum],
+        'order_count':[np.mean],
+    }
+    
+    # Function to get group stats for different windows (seconds in bucket)
+    def get_stats_window(seconds_in_bucket, add_suffix = False):
+        
+        # Group by the window
+        trades_stock_sub = trades_stock[trades_stock['seconds_in_bucket'] >= seconds_in_bucket]
+        df_feature = trades_stock_sub.groupby(['time_id']).agg(create_feature_dict).reset_index()
+        
+        if trades_stock_sub.empty == False:
+            RM = 2 * np.sqrt(np.abs(trades_stock_sub['d_price'].cov(trades_stock_sub['d_price_l1'])))
+            roll_measure = pd.DataFrame([RM],columns=['roll_measure'])
+            roll_impact = pd.DataFrame([RM / (np.sum(trades_stock_sub['price'] * trades_stock_sub['size']))],columns=['roll_impact'])
+            mkt_impact = pd.DataFrame([np.sum(np.abs(trades_stock_sub['d_price'])) / np.sum(trades_stock_sub['size'])],columns=['mkt_impact'])
+            amihud = pd.DataFrame([np.abs(np.sum(trades_stock_sub['log_return'])) / np.sum(trades_stock_sub['size'])],columns=['amihud'])
+            df_feature = pd.concat([df_feature,roll_measure,roll_impact,mkt_impact,amihud],axis=1)
+        else:
+            roll_measure = pd.DataFrame([0],columns=['roll_measure']) 
+            roll_impact = pd.DataFrame([0],columns=['roll_impact'])
+            mkt_impact = pd.DataFrame([0],columns=['mkt_impact'])
+            amihud = pd.DataFrame([0],columns=['amihud'])
+            df_feature = pd.concat([df_feature,roll_measure,roll_impact,mkt_impact,amihud],axis=1)
+            
+        # Rename columns joining suffix
+        df_feature.columns = ['_'.join(col) for col in df_feature.columns]
+        
+        # Add a suffix to differentiate windows
+        if add_suffix:
+            df_feature = df_feature.add_suffix('_' + str(seconds_in_bucket))
+            
+        return df_feature
+    
+    # Get the stats for different windows
+    df_feature = get_stats_window(seconds_in_bucket = 0, add_suffix = False)
+    df_feature_480 = get_stats_window(seconds_in_bucket = 480, add_suffix = True)
+    df_feature_300 = get_stats_window(seconds_in_bucket = 300, add_suffix = True)
+    df_feature_120 = get_stats_window(seconds_in_bucket = 120, add_suffix = True)
+    
+    # Merge all
+    df_feature = df_feature.merge(df_feature_480, how = 'left', left_on = 'time_id_', right_on = 'time_id__480')
+    df_feature = df_feature.merge(df_feature_300, how = 'left', left_on = 'time_id_', right_on = 'time_id__300')
+    df_feature = df_feature.merge(df_feature_120, how = 'left', left_on = 'time_id_', right_on = 'time_id__120')
+    
+    # Drop unnecesary time_ids
+    df_feature.drop(['time_id__480', 'time_id__300', 'time_id__120'], axis = 1, inplace = True)
+    
+    df_feature = df_feature.add_prefix('trade_')
+    df_feature['row_id'] = df_feature['trade_time_id_'].apply(lambda x:f'{stock_id}-{x}')
+    df_feature.drop(['trade_time_id_'], axis = 1, inplace = True)
+    
+    return df_feature
+
+def count_unique(series):
+    return len(np.unique(series))
+
 def fin_metrics_book_data(df):
     
     if 'bid_price1' not in df.columns:
@@ -1427,22 +1652,3 @@ def fin_metrics_book_data(df):
     
     return [spread, depth_imb]
 
-def fin_metrics_trades_data(df):
-    
-    if 'order_count' not in df.columns:
-        sys.exit("Trades data format requred")
-        
-    df = df.copy()
-    
-    # compute neccessary cols
-    df['log_return'] = log_return(df['price'])
-    df['d_price']    = df['price'].diff()
-    df['d_price_l1'] = df['d_price'].shift(1)
-    
-    # compute metrics
-    roll_measure = 2 * np.sqrt(np.abs(df['d_price'].cov(df['d_price_l1'])))
-    roll_impact = roll_measure / (np.sum(df['price'] * df['size']))
-    mkt_impact = np.sum(np.abs(df['d_price'])) / np.sum(df['size'])
-    amihud = np.abs(np.sum(df['log_return'])) / np.sum(df['size'])
-    
-    return [roll_measure, roll_impact, mkt_impact, amihud]
