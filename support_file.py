@@ -1656,3 +1656,27 @@ def fin_metrics_book_data(df):
     
     return [spread, depth_imb]
 
+# functions to calculate VPIN
+
+def buyer_prob(price, bid, ask):
+    return max(0, min(1, (price - bid)/(ask - bid)))
+
+def signed_volume(df_book, start_time, end_time, price, volume, output='buy'):
+    if output not in ['buy', 'sell']:
+        sys.exit("Required output = 'buy' or 'sell'")
+    
+    if np.isnan(start_time):
+        start_time = 0
+    
+    # compute the weighted bid and ask prices from the book
+    w_ask = np.sum(df_book[(start_time <= df_book['seconds_in_bucket']) & (df_book['seconds_in_bucket'] < end_time)]['ask_price1'] * df_book[(start_time <= df_book['seconds_in_bucket']) & (df_book['seconds_in_bucket'] < end_time)]['time_length']) / (end_time - start_time)
+    w_bid = np.sum(df_book[(start_time <= df_book['seconds_in_bucket']) & (df_book['seconds_in_bucket'] < end_time)]['bid_price1'] * df_book[(start_time <= df_book['seconds_in_bucket']) & (df_book['seconds_in_bucket'] < end_time)]['time_length']) / (end_time - start_time)
+    
+    if output == 'buy':
+        result = volume * buyer_prob(price, w_bid, w_ask)
+    else:
+        result = volume * (1 - buyer_prob(price, w_bid, w_ask))
+
+    return result
+
+
