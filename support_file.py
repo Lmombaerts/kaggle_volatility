@@ -1368,7 +1368,7 @@ def computeFeatures_newTest_Laurent_wTrades(machine, dataset, all_stocks_ids, da
         # Fin metrics trades
         df_fin_metrics_trades = trades_stock.groupby(['time_id']).apply(fin_metrics_trades_data).to_frame().reset_index()
         df_fin_metrics_trades = df_fin_metrics_trades.rename(columns={0:'embedding'})
-        df_fin_metrics_trades[['roll_measure', 'roll_impact', 'mkt_impact', 'amihud']] = pd.DataFrame(df_fin_metrics_trades.embedding.tolist(), index=df_fin_metrics_trades.index)
+        df_fin_metrics_trades[['trades_number', 'traded_volume', 'avg_trade_size', 'roll_measure', 'roll_impact', 'mkt_impact', 'amihud']] = pd.DataFrame(df_fin_metrics_trades.embedding.tolist(), index=df_fin_metrics_trades.index)
         df_fin_metrics_trades['time_id'] = [f'{stock_id}-{time_id}' for time_id in df_fin_metrics_trades['time_id']] 
         df_fin_metrics_trades = df_fin_metrics_trades.rename(columns={'time_id':'row_id'}).drop(['embedding'],axis=1)
 
