@@ -1685,6 +1685,7 @@ def vpin_per_time_id(df_book, df_trades):
     # the input data tables contain just one time_id
     
     df_book = df_book.copy() # maybe you know better way than this
+    df_trades = df_trades.copy()
         
     # add time length for each state of the book
     df_book['time_length'] = df_book['seconds_in_bucket'].diff().shift(periods=-1)
