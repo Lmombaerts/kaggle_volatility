@@ -1680,3 +1680,22 @@ def signed_volume(df_book, start_time, end_time, price, volume, output='buy'):
     return result
 
 
+# Function calculating VPIN per time_id
+def vpin_per_time_id(df_book, df_trades):
+    # the input data tables contain just one time_id
+    
+    df_book = df_book.copy() # maybe you know better way than this
+        
+    # add time length for each state of the book
+    df_book['time_length'] = df_book['seconds_in_bucket'].diff().shift(periods=-1)
+    df_book.loc[len(df_book)-1, 'time_length'] = 600 - df_book['seconds_in_bucket'].iloc[-1]
+    
+    
+    df_trades['prev_trade_second'] = df_trades['seconds_in_bucket'].shift()
+    df_trades['buyer_volume'] = df_trades.apply(lambda row: signed_volume(df_book, row['prev_trade_second'], row['seconds_in_bucket'], row['price'], row['size']), axis=1)
+    df_trades['seller_volume'] = df_trades['size'] - df_trades['buyer_volume']
+    df_trades['vpin'] = df_trades.apply(lambda row: np.abs(row['buyer_volume'] - row['seller_volume'])/row['size'], axis = 1)
+
+    vpin = np.sum(df_trades['vpin'] * df_trades['size']) / np.sum(df_trades['size'])
+    
+    return vpin
