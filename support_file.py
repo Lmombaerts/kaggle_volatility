@@ -1550,12 +1550,15 @@ def fin_metrics_trades_data(df):
     df['d_price_l1'] = df['d_price'].shift(1)
     
     # compute metrics
+    trades_number = np.sum(df['order_count'])
+    traded_volume = np.sum(df['size'] * df['price'])
+    avg_trade_size = np.sum(df['size']) / np.sum(df['order_count'])
     roll_measure = 2 * np.sqrt(np.abs(df['d_price'].cov(df['d_price_l1'])))
     roll_impact = roll_measure / (np.sum(df['price'] * df['size']))
     mkt_impact = np.sum(np.abs(df['d_price'])) / np.sum(df['size'])
     amihud = np.abs(np.sum(df['log_return'])) / np.sum(df['size'])
     
-    return [roll_measure, roll_impact, mkt_impact, amihud]
+    return [trades_number, traded_volume, avg_trade_size, roll_measure, roll_impact, mkt_impact, amihud]
 
 def trade_preprocessor(trades_stock, stock_id):
     
