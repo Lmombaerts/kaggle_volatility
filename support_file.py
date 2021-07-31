@@ -1209,7 +1209,7 @@ def computeFeatures_newTest_Laurent_wTrades(machine, dataset, all_stocks_ids, da
     list_ent, list_fin, list_fin2 = [], [], []
     list_others, list_others2, list_others3 = [], [], []
     list_trades1, list_trades2 = [], []
-    list_vlad_book, list_vlad_trades = [], []
+    list_vlad_book, list_vlad_trades, list_vlad_booktrades = [], [], []
     for stock_id in range(127):
         
         start = time.time()
@@ -1373,6 +1373,20 @@ def computeFeatures_newTest_Laurent_wTrades(machine, dataset, all_stocks_ids, da
         df_fin_metrics_trades = df_fin_metrics_trades.rename(columns={'time_id':'row_id'}).drop(['embedding'],axis=1)
 
         list_vlad_trades.append(df_fin_metrics_trades)
+
+        # Fin metrics using both book and trades data
+        df_fin_mertrics_booktrades = pd.DataFrame({'time_id':trades_stock['time_id'].unique(), 'vpin':-1}) # initial table to fill
+        
+        # this loop takes long time (7.3 min)
+        for i in trades_stock['time_id'].unique():
+            vpin_value = vpin_per_time_id(book_stock[book_stock.time_id==i], trades_stock[trades_stock.time_id==i]) # calculate vpin for this time_id
+            df_fin_mertrics_booktrades.at[df_fin_mertrics_booktrades.index[df_fin_mertrics_booktrades.time_id == i].tolist(), 'vpin'] = vpin_value # update the table at the required row
+        
+        df_fin_mertrics_booktrades['time_id'] = [f'{stock_id}-{time_id}' for time_id in df_fin_mertrics_booktrades['time_id']]
+        df_fin_mertrics_booktrades = df_fin_mertrics_booktrades.rename(columns={'time_id':'row_id'})
+
+        list_vlad_booktrades.append(df_fin_mertrics_booktrades)
+    
         
         
         print('Computing one stock took', time.time() - start, 'seconds for stock ', stock_id)
