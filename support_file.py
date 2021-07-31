@@ -1401,6 +1401,7 @@ def computeFeatures_newTest_Laurent_wTrades(machine, dataset, all_stocks_ids, da
     df_trades2 = pd.concat(list_trades2)
     df_vlad_book = pd.concat(list_vlad_book)
     df_vlad_trades = pd.concat(list_vlad_trades)
+    df_vlad_booktrades = pd.concat(list_vlad_booktrades)
     
     df_book_features = df_submission.merge(df_submission2, on = ['row_id'], how='left').fillna(0)
     df_book_features = df_book_features.merge(df_submission3, on = ['row_id'], how='left').fillna(0)
@@ -1410,6 +1411,7 @@ def computeFeatures_newTest_Laurent_wTrades(machine, dataset, all_stocks_ids, da
     df_book_features = df_book_features.merge(df_trades2, on = ['row_id'], how='left').fillna(0)
     df_book_features = df_book_features.merge(df_vlad_book, on = ['row_id'], how='left').fillna(0)
     df_book_features = df_book_features.merge(df_vlad_trades, on = ['row_id'], how='left').fillna(0)
+    df_book_features = df_book_features.merge(df_vlad_booktrades, on = ['row_id'], how='left').fillna(0)
     
     return df_book_features
 
