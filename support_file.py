@@ -1566,7 +1566,7 @@ def trade_preprocessor(trades_stock, stock_id):
         'log_return':[realized_volatility],
         'seconds_in_bucket':[count_unique],
         'size':[np.sum],
-        'order_count':[np.mean],
+        'order_count':[np.sum, np.mean],
     }
     
     # Function to get group stats for different windows (seconds in bucket)
