@@ -1582,8 +1582,8 @@ def trade_preprocessor(trades_stock, stock_id):
             roll_impact = pd.DataFrame([RM / (np.sum(trades_stock_sub['price'] * trades_stock_sub['size']))],columns=['roll_impact'])
             mkt_impact = pd.DataFrame([np.sum(np.abs(trades_stock_sub['d_price'])) / np.sum(trades_stock_sub['size'])],columns=['mkt_impact'])
             amihud = pd.DataFrame([np.abs(np.sum(trades_stock_sub['log_return'])) / np.sum(trades_stock_sub['size'])],columns=['amihud'])
-            traded_volume = pd.DataFrame([np.sum(trades_stock_sub['size'] * trades_stock_sub['price'])], columns='traded_volume')
-            avg_trade_size = pd.DataFrame([np.sum(trades_stock_sub['size']) / np.sum(trades_stock_sub['order_count'])], columns='avg_trade_size')
+            traded_volume = pd.DataFrame([np.sum(trades_stock_sub['size'] * trades_stock_sub['price'])], columns=['traded_volume'])
+            avg_trade_size = pd.DataFrame([np.sum(trades_stock_sub['size']) / np.sum(trades_stock_sub['order_count'])], columns=['avg_trade_size'])
             df_feature = pd.concat([df_feature,roll_measure,roll_impact,mkt_impact,amihud,traded_volume,avg_trade_size],axis=1)
         else:
             roll_measure = pd.DataFrame([0],columns=['roll_measure']) 
