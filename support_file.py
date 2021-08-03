@@ -328,7 +328,7 @@ def calc_rv_from_wap_numba(values, index):
     return realized_vol
 
 def load_book_data_by_id(stock_id,datapath,train_test):
-    file_to_read = os.path.join(datapath,'book_' + train_test + str('.parquet'),'stock_id=' + str(stock_id))
+    file_to_read = os.path.join(datapath,'book_' + str(train_test) + str('.parquet'),'stock_id=' + str(stock_id))
     df = pd.read_parquet(file_to_read)
     return df
 
