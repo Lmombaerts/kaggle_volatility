@@ -1460,9 +1460,10 @@ def book_preprocessor(book_stock, stock_id):
     book_stock['total_volume'] = (book_stock['ask_size1'] + book_stock['ask_size2']) + (book_stock['bid_size1'] + book_stock['bid_size2'])
     book_stock['volume_imbalance'] = abs((book_stock['ask_size1'] + book_stock['ask_size2']) - (book_stock['bid_size1'] + book_stock['bid_size2']))
     
-    # Time Length (for next computation)
-    book_stock['time_length'] = book_stock['seconds_in_bucket'].diff().shift(periods=-1)
-    book_stock.loc[len(book_stock)-1,'time_length'] = 600 - book_stock['seconds_in_bucket'].iloc[-1]
+    # Time Length (for next computation) - this should be done after grouping
+    book_stock['time_length'] = book_stock.groupby('time_id')['seconds_in_bucket'].diff().shift(periods=-1)
+    final_observations = book_stock.index[np.isnan(book_stock['time_length'])].tolist()
+    book_stock.loc[final_observations, 'time_length'] = 600 - book_stock.loc[final_observations, 'seconds_in_bucket']
     
     # Spread
     book_stock['spread'] = book_stock['ask_price1'] - book_stock['bid_price1']
