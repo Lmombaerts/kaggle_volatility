@@ -5,6 +5,7 @@ import os
 
 from scipy.interpolate import interp1d
 import time 
+import sys # to stop the function and give warnings
 
 from sklearn.ensemble import RandomForestRegressor
 import xgboost as xgb
@@ -1208,7 +1209,7 @@ def computeFeatures_newTest_Laurent_wTrades(machine, dataset, all_stocks_ids, da
     list_ent, list_fin, list_fin2 = [], [], []
     list_others, list_others2, list_others3 = [], [], []
     list_trades1, list_trades2 = [], []
-    list_vlad_book, list_vlad_trades = [], []
+    list_vlad_book, list_vlad_trades, list_vlad_booktrades = [], [], []
     for stock_id in range(127):
         
         start = time.time()
@@ -1367,11 +1368,25 @@ def computeFeatures_newTest_Laurent_wTrades(machine, dataset, all_stocks_ids, da
         # Fin metrics trades
         df_fin_metrics_trades = trades_stock.groupby(['time_id']).apply(fin_metrics_trades_data).to_frame().reset_index()
         df_fin_metrics_trades = df_fin_metrics_trades.rename(columns={0:'embedding'})
-        df_fin_metrics_trades[['roll_measure', 'roll_impact', 'mkt_impact', 'amihud']] = pd.DataFrame(df_fin_metrics_trades.embedding.tolist(), index=df_fin_metrics_trades.index)
+        df_fin_metrics_trades[['trades_number', 'traded_volume', 'avg_trade_size', 'roll_measure', 'roll_impact', 'mkt_impact', 'amihud']] = pd.DataFrame(df_fin_metrics_trades.embedding.tolist(), index=df_fin_metrics_trades.index)
         df_fin_metrics_trades['time_id'] = [f'{stock_id}-{time_id}' for time_id in df_fin_metrics_trades['time_id']] 
         df_fin_metrics_trades = df_fin_metrics_trades.rename(columns={'time_id':'row_id'}).drop(['embedding'],axis=1)
 
         list_vlad_trades.append(df_fin_metrics_trades)
+
+        # Fin metrics using both book and trades data
+        df_fin_mertrics_booktrades = pd.DataFrame({'time_id':trades_stock['time_id'].unique(), 'vpin':-1}) # initial table to fill
+        
+        # this loop takes long time (7.3 min)
+        for i in trades_stock['time_id'].unique():
+            vpin_value = vpin_per_time_id(book_stock[book_stock.time_id==i], trades_stock[trades_stock.time_id==i]) # calculate vpin for this time_id
+            df_fin_mertrics_booktrades.at[df_fin_mertrics_booktrades.index[df_fin_mertrics_booktrades.time_id == i].tolist(), 'vpin'] = vpin_value # update the table at the required row
+        
+        df_fin_mertrics_booktrades['time_id'] = [f'{stock_id}-{time_id}' for time_id in df_fin_mertrics_booktrades['time_id']]
+        df_fin_mertrics_booktrades = df_fin_mertrics_booktrades.rename(columns={'time_id':'row_id'})
+
+        list_vlad_booktrades.append(df_fin_mertrics_booktrades)
+    
         
         
         print('Computing one stock took', time.time() - start, 'seconds for stock ', stock_id)
@@ -1386,6 +1401,7 @@ def computeFeatures_newTest_Laurent_wTrades(machine, dataset, all_stocks_ids, da
     df_trades2 = pd.concat(list_trades2)
     df_vlad_book = pd.concat(list_vlad_book)
     df_vlad_trades = pd.concat(list_vlad_trades)
+    df_vlad_booktrades = pd.concat(list_vlad_booktrades)
     
     df_book_features = df_submission.merge(df_submission2, on = ['row_id'], how='left').fillna(0)
     df_book_features = df_book_features.merge(df_submission3, on = ['row_id'], how='left').fillna(0)
@@ -1395,6 +1411,7 @@ def computeFeatures_newTest_Laurent_wTrades(machine, dataset, all_stocks_ids, da
     df_book_features = df_book_features.merge(df_trades2, on = ['row_id'], how='left').fillna(0)
     df_book_features = df_book_features.merge(df_vlad_book, on = ['row_id'], how='left').fillna(0)
     df_book_features = df_book_features.merge(df_vlad_trades, on = ['row_id'], how='left').fillna(0)
+    df_book_features = df_book_features.merge(df_vlad_booktrades, on = ['row_id'], how='left').fillna(0)
     
     return df_book_features
 
@@ -1549,12 +1566,15 @@ def fin_metrics_trades_data(df):
     df['d_price_l1'] = df['d_price'].shift(1)
     
     # compute metrics
+    trades_number = np.sum(df['order_count'])
+    traded_volume = np.sum(df['size'] * df['price'])
+    avg_trade_size = np.sum(df['size']) / np.sum(df['order_count'])
     roll_measure = 2 * np.sqrt(np.abs(df['d_price'].cov(df['d_price_l1'])))
     roll_impact = roll_measure / (np.sum(df['price'] * df['size']))
     mkt_impact = np.sum(np.abs(df['d_price'])) / np.sum(df['size'])
     amihud = np.abs(np.sum(df['log_return'])) / np.sum(df['size'])
     
-    return [roll_measure, roll_impact, mkt_impact, amihud]
+    return [trades_number, traded_volume, avg_trade_size, roll_measure, roll_impact, mkt_impact, amihud]
 
 def trade_preprocessor(trades_stock, stock_id):
     
@@ -1656,3 +1676,47 @@ def fin_metrics_book_data(df):
     
     return [spread, depth_imb]
 
+# functions to calculate VPIN
+
+def buyer_prob(price, bid, ask):
+    return max(0, min(1, (price - bid)/(ask - bid)))
+
+def signed_volume(df_book, start_time, end_time, price, volume, output='buy'):
+    if output not in ['buy', 'sell']:
+        sys.exit("Required output = 'buy' or 'sell'")
+    
+    if np.isnan(start_time):
+        start_time = 0
+    
+    # compute the weighted bid and ask prices from the book
+    w_ask = np.sum(df_book[(start_time <= df_book['seconds_in_bucket']) & (df_book['seconds_in_bucket'] < end_time)]['ask_price1'] * df_book[(start_time <= df_book['seconds_in_bucket']) & (df_book['seconds_in_bucket'] < end_time)]['time_length']) / (end_time - start_time)
+    w_bid = np.sum(df_book[(start_time <= df_book['seconds_in_bucket']) & (df_book['seconds_in_bucket'] < end_time)]['bid_price1'] * df_book[(start_time <= df_book['seconds_in_bucket']) & (df_book['seconds_in_bucket'] < end_time)]['time_length']) / (end_time - start_time)
+    
+    if output == 'buy':
+        result = volume * buyer_prob(price, w_bid, w_ask)
+    else:
+        result = volume * (1 - buyer_prob(price, w_bid, w_ask))
+
+    return result
+
+
+# Function calculating VPIN per time_id
+def vpin_per_time_id(df_book, df_trades):
+    # the input data tables contain just one time_id
+    
+    df_book = df_book.copy() # maybe you know better way than this
+    df_trades = df_trades.copy()
+        
+    # add time length for each state of the book
+    df_book['time_length'] = df_book['seconds_in_bucket'].diff().shift(periods=-1)
+    df_book.loc[len(df_book)-1, 'time_length'] = 600 - df_book['seconds_in_bucket'].iloc[-1]
+    
+    
+    df_trades['prev_trade_second'] = df_trades['seconds_in_bucket'].shift()
+    df_trades['buyer_volume'] = df_trades.apply(lambda row: signed_volume(df_book, row['prev_trade_second'], row['seconds_in_bucket'], row['price'], row['size']), axis=1)
+    df_trades['seller_volume'] = df_trades['size'] - df_trades['buyer_volume']
+    df_trades['vpin'] = df_trades.apply(lambda row: np.abs(row['buyer_volume'] - row['seller_volume'])/row['size'], axis = 1)
+
+    vpin = np.sum(df_trades['vpin'] * df_trades['size']) / np.sum(df_trades['size'])
+    
+    return vpin
