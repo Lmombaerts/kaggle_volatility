@@ -21,8 +21,20 @@ library(Hmisc)
 features <- readRDS(paste0(getwd(), "/features.RDS")) # 5.6 sec loading time
 
 
-
 # feature analysis --------------------------------------------------------
+
+# recover stock_id and time_id
+features[, `:=`(
+  stock_id = as.integer(gsub(pattern = "(\\d+)-(\\d+)", replacement = "\\1", x = row_id)),
+  time_id = as.integer(gsub(pattern = "(\\d+)-(\\d+)", replacement = "\\2", x = row_id))
+)]
+
+# there are some time_id that are not present for all stocks
+features[, .N, by=.(time_id)][N < 112, ]
+
+# and some stocks have less than 3830 time_id's
+features[, .N, by = .(stock_id)][, describe(N)]
+
 
 features[, describe(trade_roll_measure)]
 features[, histogram(trade_roll_measure)]
