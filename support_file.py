@@ -1472,10 +1472,10 @@ def computeFeatures_2807_noParallel(machine, dataset, all_stocks_ids, datapath):
         trades_features_df = trade_preprocessor(trades_stock, stock_id)
         
         # Trades-book co-processing
-        trades_book_features_df = vpin_per_time_id(book_stock,trades_stock, stock_id)
+        #trades_book_features_df = vpin_per_time_id(book_stock,trades_stock, stock_id)
         
         df_tmp = pd.merge(book_features_df, trades_features_df, on = 'row_id', how = 'left')
-        df_tmp = pd.merge(df_tmp, trades_book_features_df, on = 'row_id', how = 'left') 
+        #df_tmp = pd.merge(df_tmp, trades_book_features_df, on = 'row_id', how = 'left') 
         
         df.append(df_tmp) 
         
@@ -1631,15 +1631,14 @@ def trade_preprocessor(trades_stock, stock_id):
         df_feature = trades_stock_sub.groupby(['time_id']).agg(create_feature_dict).reset_index()
         
         if trades_stock_sub.empty == False:
-            RM = 2 * np.sqrt(np.abs(trades_stock_sub['d_price'].cov(trades_stock_sub['d_price_l1'])))
-            roll_measure = pd.DataFrame([RM],columns=['roll_measure'])
-            roll_impact = pd.DataFrame([RM / (np.sum(trades_stock_sub['price'] * trades_stock_sub['size']))],columns=['roll_impact'])
-            mkt_impact = pd.DataFrame([np.sum(np.abs(trades_stock_sub['d_price'])) / np.sum(trades_stock_sub['size'])],columns=['mkt_impact'])
-            amihud = pd.DataFrame([np.abs(np.sum(trades_stock_sub['log_return'])) / np.sum(trades_stock_sub['size'])],columns=['amihud'])
-            trades_number = pd.DataFrame([np.sum(trades_stock_sub['order_count'])],columns=['trades_number'])
-            traded_volume = pd.DataFrame([np.sum(trades_stock_sub['size'] * trades_stock_sub['price'])],columns=['traded_volume'])
-            avg_trade_size = pd.DataFrame([np.sum(trades_stock_sub['size']) / np.sum(trades_stock_sub['order_count'])],columns=['avg_trade_size'])
-            df_feature = pd.concat([df_feature,roll_measure,roll_impact,mkt_impact,amihud,trades_number,traded_volume,avg_trade_size],axis=1)
+            
+            df_feature_suite = trades_stock_sub.groupby(['time_id']).apply(trades_metrics)
+            df_feature = df_feature.merge(df_feature_suite, how = 'left', on = 'time_id').drop(df_feature.columns[0],axis=1)
+            
+            # Rename columns joining suffix
+            df_feature.columns = ['_'.join(col) for col in df_feature.columns]
+            df_feature = df_feature.rename(columns={'t_i_m_e___i_d': 'time_id_'})
+            
         else:
             roll_measure = pd.DataFrame([0],columns=['roll_measure']) 
             roll_impact = pd.DataFrame([0],columns=['roll_impact'])
@@ -1648,10 +1647,12 @@ def trade_preprocessor(trades_stock, stock_id):
             trades_number = pd.DataFrame([0],columns=['trades_number'])
             traded_volume = pd.DataFrame([0],columns=['traded_volume'])
             avg_trade_size = pd.DataFrame([0],columns=['avg_trade_size'])
-            df_feature = pd.concat([df_feature,roll_measure,roll_impact,mkt_impact,amihud,trades_number,traded_volume,avg_trade_size],axis=1)
             
-        # Rename columns joining suffix
-        df_feature.columns = ['_'.join(col) for col in df_feature.columns]
+            df_feature_suite = pd.concat([roll_measure,roll_impact,mkt_impact,amihud,trades_number,traded_volume,avg_trade_size],axis=1)
+            df_feature = pd.concat([df_feature,df_feature_suite],axis=1)
+            
+            # Rename columns joining suffix
+            df_feature.columns = ['_'.join(col) for col in df_feature.columns]
         
         # Add a suffix to differentiate windows
         if add_suffix:
@@ -1676,6 +1677,8 @@ def trade_preprocessor(trades_stock, stock_id):
     df_feature = df_feature.add_prefix('trade_')
     df_feature['row_id'] = df_feature['trade_time_id_'].apply(lambda x:f'{stock_id}-{x}')
     df_feature.drop(['trade_time_id_'], axis = 1, inplace = True)
+    
+    df_feature = df_feature.fillna(0)
     
     return df_feature
 
@@ -1742,7 +1745,11 @@ def vpin_per_time_id(df_book, df_trades, stock_id):
     
     # add columns
     df_trades['prev_trade_second'] = df_trades['seconds_in_bucket'].shift()
+    df_trades['buyer_volume'] = 0# signed volume function
     df_trades['seller_volume'] = df_trades['size'] - df_trades['buyer_volume']
+    df_trades['vpin'] = np.abs(df_trades['buyer_volume'] - df_trades['seller_volume'])/df_trades['size']
+    
+    #df_trades['buyer_volume'] = df_trades.apply(lambda row: signed_volume(df_book, row['prev_trade_second'], row['seconds_in_bucket'], row['price'], row['size']), axis=1)
     
     def get_stats_window(seconds_in_bucket, add_suffix = False):
         
@@ -1751,12 +1758,10 @@ def vpin_per_time_id(df_book, df_trades, stock_id):
         df_feature = trades_stock_sub.groupby(['time_id']).agg(create_feature_dict).reset_index()
         
         if trades_stock_sub.empty == False:
-            RM = 2 * np.sqrt(np.abs(trades_stock_sub['d_price'].cov(trades_stock_sub['d_price_l1'])))
-            df_feature = pd.concat([df_feature,roll_measure,roll_impact,mkt_impact,amihud,trades_number,traded_volume,avg_trade_size],axis=1)
+            df_feature = pd.DataFrame([np.sum(trades_stock_sub['vpin'] * trades_stock_sub['size']) / np.sum(trades_stock_sub['size'])],columns=['vpin'])
         else:
-            roll_measure = pd.DataFrame([0],columns=['roll_measure']) 
-            df_feature = pd.concat([df_feature,roll_measure,roll_impact,mkt_impact,amihud,trades_number,traded_volume,avg_trade_size],axis=1)
-            
+            roll_measure = pd.DataFrame([0],columns=['vpin']) 
+              
         # Rename columns joining suffix
         df_feature.columns = ['_'.join(col) for col in df_feature.columns]
         
@@ -1769,15 +1774,25 @@ def vpin_per_time_id(df_book, df_trades, stock_id):
     # Get the stats for different windows
     df_feature = get_stats_window(seconds_in_bucket = 0, add_suffix = False)
     
-    df_trades['buyer_volume'] = df_trades.apply(lambda row: signed_volume(df_book, row['prev_trade_second'], row['seconds_in_bucket'], row['price'], row['size']), axis=1)
-    df_trades['vpin'] = df_trades.apply(lambda row: np.abs(row['buyer_volume'] - row['seller_volume'])/row['size'], axis = 1)
-
-    vpin = np.sum(df_trades['vpin'] * df_trades['size']) / np.sum(df_trades['size'])
-    vpin_pd = pd.DataFrame([vpin],columns=['vpin'])
+    # Add row id
+    df_feature = df_feature.add_prefix('tradebook_')
+    df_feature['row_id'] = df_feature['tradebook_time_id_'].apply(lambda x:f'{stock_id}-{x}')
+    df_feature.drop(['tradebook_time_id_'], axis = 1, inplace = True)
     
-    # Create row_id so we can merge
-    time_id = df_book['time_id'][0]
-    row_id_pd = pd.DataFrame([f'{stock_id}-{time_id}'],columns=['row_id'])
-    df_feature = pd.concat([row_id_pd,vpin_pd],axis=1) # Single feature
-     
     return df_feature
+
+def trades_metrics(trades_stock_sub):
+
+    RM = 2 * np.sqrt(np.abs(trades_stock_sub['d_price'].cov(trades_stock_sub['d_price_l1'])))
+    roll_measure = pd.DataFrame([RM],columns=['roll_measure'])
+    roll_impact = pd.DataFrame([RM / (np.sum(trades_stock_sub['price'] * trades_stock_sub['size']))],columns=['roll_impact'])
+    mkt_impact = pd.DataFrame([np.sum(np.abs(trades_stock_sub['d_price'])) / np.sum(trades_stock_sub['size'])],columns=['mkt_impact'])
+    amihud = pd.DataFrame([np.abs(np.sum(trades_stock_sub['log_return'])) / np.sum(trades_stock_sub['size'])],columns=['amihud'])
+    trades_number = pd.DataFrame([np.sum(trades_stock_sub['order_count'])],columns=['trades_number'])
+    traded_volume = pd.DataFrame([np.sum(trades_stock_sub['size'] * trades_stock_sub['price'])],columns=['traded_volume'])
+    avg_trade_size = pd.DataFrame([np.sum(trades_stock_sub['size']) / np.sum(trades_stock_sub['order_count'])],columns=['avg_trade_size'])
+    
+    df_feature = pd.concat([roll_measure,roll_impact,mkt_impact,amihud,trades_number,traded_volume,avg_trade_size],axis=1).fillna(0)
+    
+    return df_feature
+    
