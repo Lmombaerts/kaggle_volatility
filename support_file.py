@@ -1421,6 +1421,9 @@ def computeFeatures_2807(machine, dataset, all_stocks_ids, datapath):
         # Trades stats processing
         trades_features_df = trade_preprocessor(trades_stock, stock_id)
         
+        # Trades book features
+        trades_book_features_df = trade_book_preprocessor(book_stock, trades_stock, stock_id)
+        
         df_tmp = pd.merge(book_features_df, trades_features_df, on = 'row_id', how = 'left')
         
         return df_tmp 
@@ -1655,3 +1658,82 @@ def fin_metrics_book_data(df):
     
     return [spread, depth_imb]
 
+def trade_book_preprocessor(df_book, df_trades, stock_id):
+    
+    # Adding book columns
+    df_book['time_length'] = df_book['seconds_in_bucket'].diff().shift(periods=-1)
+    df_book.loc[len(df_book)-1, 'time_length'] = 600 - df_book['seconds_in_bucket'].iloc[-1]
+    
+    # Adding trade columns
+    df_trades['prev_trade_second'] = df_trades['seconds_in_bucket'].shift()
+    df_trades['buyer_volume'] = df_trades.apply(lambda row: signed_volume(df_book, row['prev_trade_second'], row['seconds_in_bucket'], row['price'], row['size']), axis=1)
+    df_trades['seller_volume'] = df_trades['size'] - df_trades['buyer_volume']
+    df_trades['vpin'] = np.abs(df_trades['buyer_volume'] - df_trades['seller_volume'])/df_trades['size']
+    
+    # Function to get group stats for different windows (seconds in bucket)
+    def get_stats_window(seconds_in_bucket, add_suffix = False):
+        
+        # Group by the window
+        trades_stock_sub = trades_stock[trades_stock['seconds_in_bucket'] >= seconds_in_bucket]
+        #df_feature = trades_stock_sub.groupby(['time_id']).agg(create_feature_dict).reset_index()
+        
+        # Rename columns joining suffix
+        # df_feature.columns = ['_'.join(col) for col in df_feature.columns]
+
+        if trades_stock_sub.empty == False:
+            #np.sum(trades_stock_sub['vpin'] * trades_stock_sub['size']) / np.sum(trades_stock_sub['size'])
+            df_feature = trades_stock_sub.groupby('time_id').apply(lambda x: np.sum(x['vpin'] * x['size'])/np.sum(x['size'])).reset_index(name='vpin')
+            #df_feature = pd.concat([df_feature,traded_volume['traded_volume'],avg_trade_size['avg_trade_size']],axis=1)
+        else:
+            df_feature = pd.DataFrame({'time_id':trades_stock_sub['time_id'].unique(), 'vpin':0})
+            #df_feature = pd.concat([df_feature,roll_measure['roll_measure']],axis=1)
+        
+        # Add a suffix to differentiate windows
+        if add_suffix:
+            df_feature = df_feature.add_suffix('_' + str(seconds_in_bucket))
+            
+        return df_feature
+    
+    # Get the stats for different windows
+    df_feature = get_stats_window(seconds_in_bucket = 0, add_suffix = False)
+    df_feature_480 = get_stats_window(seconds_in_bucket = 480, add_suffix = True)
+    df_feature_300 = get_stats_window(seconds_in_bucket = 300, add_suffix = True)
+    df_feature_120 = get_stats_window(seconds_in_bucket = 120, add_suffix = True)
+    
+    # Merge all
+    df_feature = df_feature.merge(df_feature_480, how = 'left', left_on = 'time_id_', right_on = 'time_id__480')
+    df_feature = df_feature.merge(df_feature_300, how = 'left', left_on = 'time_id_', right_on = 'time_id__300')
+    df_feature = df_feature.merge(df_feature_120, how = 'left', left_on = 'time_id_', right_on = 'time_id__120')
+    
+    # Drop unnecesary time_ids
+    df_feature.drop(['time_id__480', 'time_id__300', 'time_id__120'], axis = 1, inplace = True)
+    
+    df_feature = df_feature.add_prefix('trade_')
+    df_feature['row_id'] = df_feature['trade_time_id_'].apply(lambda x:f'{stock_id}-{x}')
+    df_feature.drop(['trade_time_id_'], axis = 1, inplace = True)
+    
+    return df_feature
+
+def buyer_prob(price, bid, ask):
+    return max(0, min(1, (price - bid)/(ask - bid)))
+
+def signed_volume(df_book, start_time, end_time, price, volume, output='buy'):
+    if output not in ['buy', 'sell']:
+        sys.exit("Required output = 'buy' or 'sell'")
+
+    if np.isnan(start_time):
+        start_time = 0
+
+    # compute the weighted bid and ask prices from the book
+    w_ask = np.sum(df_book[(start_time <= df_book['seconds_in_bucket']) & (df_book['seconds_in_bucket'] < end_time)]['ask_price1'] * df_book[(start_time <= df_book['seconds_in_bucket']) & (df_book['seconds_in_bucket'] < end_time)]['time_length']) / (end_time - start_time)
+    
+    #w_ask_agg = df_book.groupby(['time_id'])
+    
+    w_bid = np.sum(df_book[(start_time <= df_book['seconds_in_bucket']) & (df_book['seconds_in_bucket'] < end_time)]['bid_price1'] * df_book[(start_time <= df_book['seconds_in_bucket']) & (df_book['seconds_in_bucket'] < end_time)]['time_length']) / (end_time - start_time)
+
+    if output == 'buy':
+        result = volume * buyer_prob(price, w_bid, w_ask)
+    else:
+        result = volume * (1 - buyer_prob(price, w_bid, w_ask))
+
+    return result
