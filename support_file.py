@@ -1666,17 +1666,19 @@ def trade_book_preprocessor(df_book, df_trades, stock_id):
     
     # Adding trade columns
     df_trades['prev_trade_second'] = df_trades['seconds_in_bucket'].shift()
-    df_trades['buyer_volume'] = df_trades.apply(lambda row: signed_volume(df_book, row['prev_trade_second'], row['seconds_in_bucket'], row['price'], row['size']), axis=1)
-    df_trades['seller_volume'] = df_trades['size'] - df_trades['buyer_volume']
-    df_trades['vpin'] = np.abs(df_trades['buyer_volume'] - df_trades['seller_volume'])/df_trades['size']
     
     # Function to get group stats for different windows (seconds in bucket)
     def get_stats_window(seconds_in_bucket, add_suffix = False):
         
         # Group by the window
         trades_stock_sub = trades_stock[trades_stock['seconds_in_bucket'] >= seconds_in_bucket]
-        #df_feature = trades_stock_sub.groupby(['time_id']).agg(create_feature_dict).reset_index()
+        df_feature = trades_stock_sub.groupby(['time_id']).agg(create_feature_dict).reset_index()
         
+        
+        df_trades['buyer_volume'] = df_trades.apply(lambda row: signed_volume(df_book, row['prev_trade_second'], row['seconds_in_bucket'], row['price'], row['size']), axis=1)
+        df_trades['seller_volume'] = df_trades['size'] - df_trades['buyer_volume']
+        df_trades['vpin'] = np.abs(df_trades['buyer_volume'] - df_trades['seller_volume'])/df_trades['size']
+    
         # Rename columns joining suffix
         # df_feature.columns = ['_'.join(col) for col in df_feature.columns]
 
