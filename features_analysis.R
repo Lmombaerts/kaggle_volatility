@@ -1,6 +1,7 @@
 library(data.table)
 library(magrittr)
 library(Hmisc)
+library(ggplot2)
 
 
 # File load ---------------------------------------------------------------
@@ -21,7 +22,8 @@ library(Hmisc)
 features <- readRDS(paste0(getwd(), "/features.RDS")) # 5.6 sec loading time
 
 
-# feature analysis --------------------------------------------------------
+
+# stats on features -------------------------------------------------------
 
 # recover stock_id and time_id
 features[, `:=`(
@@ -62,10 +64,31 @@ rm(stats_tab_t, row_max, row_mean, row_min, row_p05, row_p25, row_p50, row_p75, 
 
 stats_tab
 
+
+
+# scatter plots -----------------------------------------------------------
+
+
+
+
+# returns -----------------------------------------------------------------
+
+# some graphs (random stock each time)
+features[stock_id == sample(all_stock_ids, 1), plot(log_return1_std, log_return1_realized_volatility)] # obviously
+features[stock_id == sample(all_stock_ids, 1), plot(log_return1_mean %>% abs %>% log, log_return1_realized_volatility)] # also expected
+
+# volatility of different stocks
+features[, .(avg_ret_std = mean(log_return1_std)), by = .(stock_id)][, histogram(avg_ret_std)]
+features[, .(volat_ret_std = sqrt(var(log_return1_std))), by = .(stock_id)][, histogram(volat_ret_std)]
+
+
+features[, describe(log_return1_sum)]
+features[stock_id == all_stock_ids[1], histogram(log_return1_mean, breaks = 50)]
+
+
+
+
 features[, describe(trade_roll_measure)]
 features[, histogram(trade_roll_measure)]
 features[trade_roll_measure < 0.002, histogram(trade_roll_measure)]
-
-
-
 
