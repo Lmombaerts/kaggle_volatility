@@ -64,31 +64,45 @@ rm(stats_tab_t, row_max, row_mean, row_min, row_p05, row_p25, row_p50, row_p75, 
 
 stats_tab
 
+# as we are interested in finding clusters in stock and time lets first
+# grout the data into aggregated tables
 
+stock_means <- features[, lapply(.SD, mean), by = .(stock_id)]
+stock_sds <- features[, lapply(.SD, sd), by = .(stock_id)]
+
+time_means <- features[, lapply(.SD, mean), by = .(time_id)]
+time_sds <- features[, lapply(.SD, sd), by = .(time_id)]
 
 # scatter plots -----------------------------------------------------------
 
+# (STOCKS) realized volatility vs some other features 
+stock_means[, plot(log_return1_std, log_return1_realized_volatility)] # sd of returns and realized volatility is highly linked
+stock_means[, plot(price_spread_mean, log_return1_realized_volatility)] # same for the price spread
+stock_means[, plot(total_volume_mean %>% log, log_return1_realized_volatility)] # high total depth ~ lower realized volatility
+stock_means[, plot(total_volume_mean %>% log, log_returnMidprice_realized_volatility)] # not the same with midprice realized volatility
+stock_means[, plot(trade_amihud %>% log, trade_log_return_realized_volatility)] # higher illiquidity ~ higher volatility
+stock_means[, plot(trade_roll_measure, trade_log_return_realized_volatility)] # higher autocorrelation in returns ~ higher volatility
+stock_means[, plot(trade_mkt_impact, trade_log_return_realized_volatility)] # 
+stock_means[, plot(trade_avg_trade_size %>% log, trade_log_return_realized_volatility)] # no statistical effect
+
+# (STOCKS) other graphs
+stock_means[, plot(price_spread_mean, total_volume_mean %>% log)] # unusual: higher spread ~ lower depth
+stock_means[, plot(price_spread_mean, volume_imbalance_mean %>% log)] # unusual: higher buy/sell imbalance ~ lower spread
+stock_means[, plot(total_volume_mean %>% log, volume_imbalance_mean %>% log)] # almost linear relationship btw total depth and depth imbalance => one side is always dominating the market
+
+stock_means[, plot(price_spread_mean, trade_amihud)] # greater spread ~ more illiquidity
+stock_means[, plot(bid_spread_mean, ask_spread_mean %>% abs)] # almost linear relationship
+stock_means[, plot(ask_spread_mean %>% abs, price_spread_mean)] # higher spread within buy/sell side ~ higher spread on the market
+stock_means[, plot(bid_spread_mean, price_spread_mean)] # higher spread within buy/sell side ~ higher spread on the market
+
+stock_means[, plot(trade_avg_trade_size %>% log, price_spread_mean)] # unusual: higher trade size ~ lower spread
+stock_means[, plot(trade_avg_trade_size %>% log, total_volume_mean %>% log)] # more depth ~ more aggressive trading
+stock_means[, plot(trade_size_sum %>% log, total_volume_mean %>% log)] # more depth ~ more trading
 
 
 
-# returns -----------------------------------------------------------------
-
-# some graphs (random stock each time)
-features[stock_id == sample(all_stock_ids, 1), plot(log_return1_std, log_return1_realized_volatility)] # obviously
-features[stock_id == sample(all_stock_ids, 1), plot(log_return1_mean %>% abs %>% log, log_return1_realized_volatility)] # also expected
-
-# volatility of different stocks
-features[, .(avg_ret_std = mean(log_return1_std)), by = .(stock_id)][, histogram(avg_ret_std)]
-features[, .(volat_ret_std = sqrt(var(log_return1_std))), by = .(stock_id)][, histogram(volat_ret_std)]
-
-
-features[, describe(log_return1_sum)]
-features[stock_id == all_stock_ids[1], histogram(log_return1_mean, breaks = 50)]
 
 
 
 
-features[, describe(trade_roll_measure)]
-features[, histogram(trade_roll_measure)]
-features[trade_roll_measure < 0.002, histogram(trade_roll_measure)]
 
