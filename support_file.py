@@ -328,7 +328,7 @@ def calc_rv_from_wap_numba(values, index):
     return realized_vol
 
 def load_book_data_by_id(stock_id,datapath,train_test):
-    file_to_read = os.path.join(datapath,'book_' + train_test + str('.parquet'),'stock_id=' + str(stock_id))
+    file_to_read = os.path.join(datapath,'book_' + str(train_test) + str('.parquet'),'stock_id=' + str(stock_id))
     df = pd.read_parquet(file_to_read)
     return df
 
@@ -1461,8 +1461,7 @@ def book_preprocessor(book_stock, stock_id):
     book_stock['volume_imbalance'] = abs((book_stock['ask_size1'] + book_stock['ask_size2']) - (book_stock['bid_size1'] + book_stock['bid_size2']))
     
     # Time Length (for next computation)
-    book_stock['time_length'] = book_stock['seconds_in_bucket'].diff()
-    book_stock.time_length = book_stock.time_length.shift(periods=-1)
+    book_stock['time_length'] = book_stock['seconds_in_bucket'].diff().shift(periods=-1)
     book_stock.loc[len(book_stock)-1,'time_length'] = 600 - book_stock['seconds_in_bucket'].iloc[-1]
     
     # Spread
@@ -1567,7 +1566,7 @@ def trade_preprocessor(trades_stock, stock_id):
         'log_return':[realized_volatility],
         'seconds_in_bucket':[count_unique],
         'size':[np.sum],
-        'order_count':[np.mean],
+        'order_count':[np.sum, np.mean],
     }
     
     # Function to get group stats for different windows (seconds in bucket)
@@ -1577,22 +1576,26 @@ def trade_preprocessor(trades_stock, stock_id):
         trades_stock_sub = trades_stock[trades_stock['seconds_in_bucket'] >= seconds_in_bucket]
         df_feature = trades_stock_sub.groupby(['time_id']).agg(create_feature_dict).reset_index()
         
-        if trades_stock_sub.empty == False:
-            RM = 2 * np.sqrt(np.abs(trades_stock_sub['d_price'].cov(trades_stock_sub['d_price_l1'])))
-            roll_measure = pd.DataFrame([RM],columns=['roll_measure'])
-            roll_impact = pd.DataFrame([RM / (np.sum(trades_stock_sub['price'] * trades_stock_sub['size']))],columns=['roll_impact'])
-            mkt_impact = pd.DataFrame([np.sum(np.abs(trades_stock_sub['d_price'])) / np.sum(trades_stock_sub['size'])],columns=['mkt_impact'])
-            amihud = pd.DataFrame([np.abs(np.sum(trades_stock_sub['log_return'])) / np.sum(trades_stock_sub['size'])],columns=['amihud'])
-            df_feature = pd.concat([df_feature,roll_measure,roll_impact,mkt_impact,amihud],axis=1)
-        else:
-            roll_measure = pd.DataFrame([0],columns=['roll_measure']) 
-            roll_impact = pd.DataFrame([0],columns=['roll_impact'])
-            mkt_impact = pd.DataFrame([0],columns=['mkt_impact'])
-            amihud = pd.DataFrame([0],columns=['amihud'])
-            df_feature = pd.concat([df_feature,roll_measure,roll_impact,mkt_impact,amihud],axis=1)
-            
         # Rename columns joining suffix
         df_feature.columns = ['_'.join(col) for col in df_feature.columns]
+
+        if trades_stock_sub.empty == False:
+            roll_measure = trades_stock.groupby('time_id').apply(lambda x: 2 * np.sqrt(np.abs(x['d_price'].cov(x['d_price_l1'])))).reset_index(name='roll_measure')
+            roll_impact = trades_stock.groupby('time_id').apply(lambda x: (2 * np.sqrt(np.abs(x['d_price'].cov(x['d_price_l1']))))/ (np.sum(x['price'] * x['size']))).reset_index(name='roll_impact')
+            mkt_impact = trades_stock.groupby('time_id').apply(lambda x: np.sum(np.abs(x['d_price'])) / np.sum(x['size'])).reset_index(name='mkt_impact')
+            amihud = trades_stock.groupby('time_id').apply(lambda x: np.abs(np.sum(x['log_return'])) / np.sum(x['size'])).reset_index(name='amihud')
+            traded_volume = trades_stock.groupby('time_id').apply(lambda x: np.sum(x['size'] * x['price'])).reset_index(name='traded_volume')
+            avg_trade_size = trades_stock.groupby('time_id').apply(lambda x: np.sum(x['size']) / np.sum(x['order_count'])).reset_index(name='avg_trade_size')
+            df_feature = pd.concat([df_feature,roll_measure['roll_measure'],roll_impact['roll_impact'],mkt_impact['mkt_impact'],amihud['amihud'],traded_volume['traded_volume'],avg_trade_size['avg_trade_size']],axis=1)
+        else:
+            roll_measure = pd.DataFrame({'time_id':trades_stock['time_id'].unique(), 'roll_measure':0})
+            roll_impact = pd.DataFrame({'time_id':trades_stock['time_id'].unique(), 'roll_impact':0})
+            mkt_impact = pd.DataFrame({'time_id':trades_stock['time_id'].unique(), 'mkt_impact':0})
+            amihud = pd.DataFrame({'time_id':trades_stock['time_id'].unique(), 'amihud':0})
+            traded_volume = pd.DataFrame({'time_id':trades_stock['time_id'].unique(), 'traded_volume':0})
+            avg_trade_size = pd.DataFrame({'time_id':trades_stock['time_id'].unique(), 'avg_trade_size':0})
+            df_feature = pd.concat([df_feature,roll_measure['roll_measure'],roll_impact['roll_impact'],mkt_impact['mkt_impact'],amihud['amihud'],traded_volume['traded_volume'],avg_trade_size['avg_trade_size']],axis=1)
+            
         
         # Add a suffix to differentiate windows
         if add_suffix:
