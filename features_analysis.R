@@ -130,3 +130,60 @@ time_means[, plot(trade_size_sum %>% log, total_volume_mean %>% log)] # no relat
 
 # same results for time_sds, but weaker statistically imo
 
+
+
+# Normalization -----------------------------------------------------------
+
+stock_means_norm <- as.data.table(scale(stock_means))
+stock_sds_norm <- as.data.table(scale(stock_sds))
+
+time_means_norm <- as.data.table(scale(time_means))
+time_sds_norm <- as.data.table(scale(time_sds))
+
+
+
+# Euclidean distance ------------------------------------------------------
+
+stock_means_dist <- dist(stock_means_norm)
+stock_sds_dist <- dist(stock_sds_norm)
+
+
+
+
+# Cluster Dendrogram with Complete Linkage --------------------------------
+
+stock_means_hc_c <- hclust(stock_means_dist)
+plot(stock_means_hc_c) # around 3 main clusters + stock #29
+
+stock_sds_hc_c <- hclust(stock_sds_dist)
+plot(stock_sds_hc_c) # around 3 main clusters + stock #29
+
+
+
+# Cluster Dendrogram with Average Linkage ---------------------------------
+
+stock_means_hc_a <- hclust(stock_means_dist, method = "average")
+plot(stock_means_hc_a) # around 2 clusters + stocks #29 and #67
+
+stock_sds_hc_a <- hclust(stock_sds_dist, method = "average")
+plot(stock_sds_hc_a) # around 2 main clusters + stocks #29 and #71
+
+
+# Cluster membership ------------------------------------------------------
+
+stock_means_memb_c <- cutree(stock_means_hc_c, k = 4)
+stock_means_memb_a <- cutree(stock_means_hc_a, k = 4)
+
+table(stock_means_memb_c, stock_means_memb_a) # some mismatch for the cluster#2 but in general good separation of outliers (#29 and #67)
+
+
+
+# Cluster Means -----------------------------------------------------------
+
+# stocks #29 and #67 are very much different
+as.data.table(aggregate(stock_means_norm, list(stock_means_memb_c), mean)) %>% View
+
+
+
+
+
