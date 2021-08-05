@@ -104,6 +104,29 @@ stock_means[, plot(trade_size_sum %>% log, total_volume_mean %>% log)] # more de
 
 
 
+# (TIMES) realized volatility vs some other features 
+time_means[, plot(log_return1_std, log_return1_realized_volatility)] # sd of returns and realized volatility is highly linked
+time_means[, plot(price_spread_mean, log_return1_realized_volatility)] # same for the price spread
+time_means[, plot(total_volume_mean %>% log, log_return1_realized_volatility)] # high total depth ~ lower realized volatility
+time_means[, plot(total_volume_mean %>% log, log_returnMidprice_realized_volatility)] # SIMILAR with midprice realized volatility
+time_means[, plot(trade_amihud %>% log, trade_log_return_realized_volatility)] # LESS OBVIOUS: higher illiquidity ~ higher volatility
+time_means[, plot(trade_roll_measure, trade_log_return_realized_volatility)] # LESS OBVIOUS: higher autocorrelation in returns ~ higher volatility
+time_means[, plot(trade_mkt_impact %>% log, trade_log_return_realized_volatility)] # not obvious relationship
+time_means[, plot(trade_avg_trade_size %>% log, trade_log_return_realized_volatility)] # 
+
+# (TIMES) other graphs
+time_means[, plot(price_spread_mean, total_volume_mean %>% log)] # unusual: higher spread ~ lower depth
+time_means[, plot(price_spread_mean, volume_imbalance_mean %>% log)] # unusual: higher buy/sell imbalance ~ lower spread
+time_means[, plot(total_volume_mean %>% log, volume_imbalance_mean %>% log)] # almost linear relationship btw total depth and depth imbalance => one side is always dominating the market
+
+time_means[, plot(price_spread_mean, trade_amihud)] # NOT OBVIOUS: greater spread ~ more illiquidity
+time_means[, plot(bid_spread_mean, ask_spread_mean %>% abs)] # almost linear relationship
+time_means[, plot(ask_spread_mean %>% abs, price_spread_mean)] # higher spread within buy/sell side ~ higher spread on the market
+time_means[, plot(bid_spread_mean, price_spread_mean)] # higher spread within buy/sell side ~ higher spread on the market
+
+time_means[, plot(trade_avg_trade_size %>% log, price_spread_mean)] # not obvious relationship
+time_means[, plot(trade_avg_trade_size, total_volume_mean)] # no relationship
+time_means[, plot(trade_size_sum %>% log, total_volume_mean %>% log)] # no relationship
 
 
 
