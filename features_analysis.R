@@ -150,12 +150,15 @@ stock_sds_norm <- as.data.table(scale(stock_sds))
 time_means_norm <- as.data.table(scale(time_means))
 time_sds_norm <- as.data.table(scale(time_sds))
 
+# drop stock_id, time_id and index
+stock_means_norm[, `:=`(stock_id = NULL, index=NULL, time_id=NULL)]
+
 
 
 # Euclidean distance ------------------------------------------------------
 
 stock_means_dist <- dist(stock_means_norm)
-stock_sds_dist <- dist(stock_sds_norm)
+# stock_sds_dist <- dist(stock_sds_norm)
 
 
 
@@ -163,20 +166,20 @@ stock_sds_dist <- dist(stock_sds_norm)
 # Cluster Dendrogram with Complete Linkage --------------------------------
 
 stock_means_hc_c <- hclust(stock_means_dist)
-plot(stock_means_hc_c) # around 3 main clusters + stock #29
+plot(stock_means_hc_c) # around 2 main clusters + stock #29 at height ~50
 
-stock_sds_hc_c <- hclust(stock_sds_dist)
-plot(stock_sds_hc_c) # around 3 main clusters + stock #29
+# stock_sds_hc_c <- hclust(stock_sds_dist)
+# plot(stock_sds_hc_c) # around 3 main clusters + stock #29
 
 
 
 # Cluster Dendrogram with Average Linkage ---------------------------------
 
 stock_means_hc_a <- hclust(stock_means_dist, method = "average")
-plot(stock_means_hc_a) # around 2 clusters + stocks #29 and #67
+plot(stock_means_hc_a) # just one main cluster with stock #29 as an outlier
 
-stock_sds_hc_a <- hclust(stock_sds_dist, method = "average")
-plot(stock_sds_hc_a) # around 2 main clusters + stocks #29 and #71
+# stock_sds_hc_a <- hclust(stock_sds_dist, method = "average")
+# plot(stock_sds_hc_a) # around 2 main clusters + stocks #29 and #71
 
 
 # Cluster membership ------------------------------------------------------
@@ -184,7 +187,10 @@ plot(stock_sds_hc_a) # around 2 main clusters + stocks #29 and #71
 stock_means_memb_c <- cutree(stock_means_hc_c, k = 4)
 stock_means_memb_a <- cutree(stock_means_hc_a, k = 4)
 
-table(stock_means_memb_c, stock_means_memb_a) # some mismatch for the cluster#2 but in general good separation of outliers (#29 and #67)
+table(stock_means_memb_c, stock_means_memb_a) # identifies stocks #29 and #67 as an outliers (cluster#3#4), but has some discrepancy in cluster#2.
+
+which(stock_means_memb_c == 3) # stock#29
+which(stock_means_memb_c == 4) # stock#67
 
 
 
@@ -193,6 +199,9 @@ table(stock_means_memb_c, stock_means_memb_a) # some mismatch for the cluster#2 
 # stocks #29 and #67 are very much different
 as.data.table(aggregate(stock_means_norm, list(stock_means_memb_c), mean)) %>% View
 
+#' #29: low price, low returns, low volume imbalance, high price_spread, high total_volume,
+#'      high volume_imbalance, high trade_size, order_count, avg_trade_size
+#' #67: high volatility, high returns, high spread_sum
 
 
 
