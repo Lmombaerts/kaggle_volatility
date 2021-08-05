@@ -63,6 +63,7 @@ stats_tab <- stats_tab_t[c(-1,-2, -279, -280),]
 rm(stats_tab_t, row_max, row_mean, row_min, row_p05, row_p25, row_p50, row_p75, row_p95, row_std)
 
 stats_tab
+# fwrite(stats_tab, file = "~/Desktop/stats.csv")
 
 # as we are interested in finding clusters in stock and time lets first
 # grout the data into aggregated tables
@@ -78,16 +79,20 @@ time_sds <- features[, lapply(.SD, sd), by = .(time_id)]
 # (STOCKS) realized volatility vs some other features 
 stock_means[, plot(log_return1_std, log_return1_realized_volatility)] # sd of returns and realized volatility is highly linked
 stock_means[, plot(price_spread_mean, log_return1_realized_volatility)] # same for the price spread
+stock_means[, plot(spread_sum, log_return1_realized_volatility)] # same result for time-weighted quoted spread
 stock_means[, plot(total_volume_mean %>% log, log_return1_realized_volatility)] # high total depth ~ lower realized volatility
 stock_means[, plot(total_volume_mean %>% log, log_returnMidprice_realized_volatility)] # not the same with midprice realized volatility
 stock_means[, plot(trade_amihud %>% log, trade_log_return_realized_volatility)] # higher illiquidity ~ higher volatility
 stock_means[, plot(trade_roll_measure, trade_log_return_realized_volatility)] # higher autocorrelation in returns ~ higher volatility
 stock_means[, plot(trade_mkt_impact %>% log, trade_log_return_realized_volatility)] # 
 stock_means[, plot(trade_avg_trade_size %>% log, trade_log_return_realized_volatility)] # no statistical effect
+stock_means[, plot(depth_imbalance_sum, log_return1_realized_volatility)] # higher depth imbalance ~ higher volatility
+stock_means[, plot(volume_imbalance_mean %>% log, log_return1_realized_volatility)] # unweighted volume imbalance negatively correlates with realized volatility
 
 # (STOCKS) other graphs
 stock_means[, plot(price_spread_mean, total_volume_mean %>% log)] # unusual: higher spread ~ lower depth
 stock_means[, plot(price_spread_mean, volume_imbalance_mean %>% log)] # unusual: higher buy/sell imbalance ~ lower spread
+stock_means[, plot(spread_sum, depth_imbalance_sum)] # for the weighted measures: higher spread ~ higher depth imbalance
 stock_means[, plot(total_volume_mean %>% log, volume_imbalance_mean %>% log)] # almost linear relationship btw total depth and depth imbalance => one side is always dominating the market
 
 stock_means[, plot(price_spread_mean, trade_amihud)] # greater spread ~ more illiquidity
@@ -107,16 +112,21 @@ stock_means[, plot(trade_size_sum %>% log, total_volume_mean %>% log)] # more de
 # (TIMES) realized volatility vs some other features 
 time_means[, plot(log_return1_std, log_return1_realized_volatility)] # sd of returns and realized volatility is highly linked
 time_means[, plot(price_spread_mean, log_return1_realized_volatility)] # same for the price spread
+time_means[, plot(spread_sum, log_return1_realized_volatility)] # same result for time-weighted quoted spread
 time_means[, plot(total_volume_mean %>% log, log_return1_realized_volatility)] # high total depth ~ lower realized volatility
 time_means[, plot(total_volume_mean %>% log, log_returnMidprice_realized_volatility)] # SIMILAR with midprice realized volatility
-time_means[, plot(trade_amihud %>% log, trade_log_return_realized_volatility)] # LESS OBVIOUS: higher illiquidity ~ higher volatility
+time_means[, plot(trade_amihud %>% log, trade_log_return_realized_volatility)] # LESS OBVIOUS: higher illiquidity ~ higher volatility (more heterogeneous)
 time_means[, plot(trade_roll_measure, trade_log_return_realized_volatility)] # LESS OBVIOUS: higher autocorrelation in returns ~ higher volatility
 time_means[, plot(trade_mkt_impact %>% log, trade_log_return_realized_volatility)] # not obvious relationship
 time_means[, plot(trade_avg_trade_size %>% log, trade_log_return_realized_volatility)] # 
+time_means[, plot(depth_imbalance_sum, log_return1_realized_volatility)] # no visible relationship
+time_means[, plot(volume_imbalance_mean %>% log, log_return1_realized_volatility)] # unweighted volume imbalance negatively correlates with realized volatility
+
 
 # (TIMES) other graphs
 time_means[, plot(price_spread_mean, total_volume_mean %>% log)] # unusual: higher spread ~ lower depth
 time_means[, plot(price_spread_mean, volume_imbalance_mean %>% log)] # unusual: higher buy/sell imbalance ~ lower spread
+time_means[, plot(spread_sum, depth_imbalance_sum)] # for the weighted measures: no distinct relationship
 time_means[, plot(total_volume_mean %>% log, volume_imbalance_mean %>% log)] # almost linear relationship btw total depth and depth imbalance => one side is always dominating the market
 
 time_means[, plot(price_spread_mean, trade_amihud)] # NOT OBVIOUS: greater spread ~ more illiquidity
@@ -126,7 +136,7 @@ time_means[, plot(bid_spread_mean, price_spread_mean)] # higher spread within bu
 
 time_means[, plot(trade_avg_trade_size %>% log, price_spread_mean)] # not obvious relationship
 time_means[, plot(trade_avg_trade_size, total_volume_mean)] # no relationship
-time_means[, plot(trade_size_sum %>% log, total_volume_mean %>% log)] # no relationship
+time_means[, plot(trade_size_sum %>% log, total_volume_mean %>% log)] # no obvious relationship
 
 # same results for time_sds, but weaker statistically imo
 
