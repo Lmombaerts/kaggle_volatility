@@ -1685,7 +1685,7 @@ def trade_book_preprocessor(df_book, df_trades, stock_id):
     rows_id = pd.DataFrame(unique_times,columns=['row_id'])
     rows_id['row_id'] = rows_id['row_id'].apply(lambda x:f'{stock_id}-{x}')
     df_feature = pd.DataFrame(vpins,columns=['vpin']) 
-    df_feature = pd.concat([rows_id,df_feature])
+    df_feature = pd.concat([rows_id,df_feature],axis=1)
     
     return df_feature
 
