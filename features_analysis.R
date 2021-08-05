@@ -128,6 +128,5 @@ time_means[, plot(trade_avg_trade_size %>% log, price_spread_mean)] # not obviou
 time_means[, plot(trade_avg_trade_size, total_volume_mean)] # no relationship
 time_means[, plot(trade_size_sum %>% log, total_volume_mean %>% log)] # no relationship
 
-
-
+# same results for time_sds, but weaker statistically imo
 
