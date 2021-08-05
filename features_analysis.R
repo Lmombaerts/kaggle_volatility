@@ -82,7 +82,7 @@ stock_means[, plot(total_volume_mean %>% log, log_return1_realized_volatility)] 
 stock_means[, plot(total_volume_mean %>% log, log_returnMidprice_realized_volatility)] # not the same with midprice realized volatility
 stock_means[, plot(trade_amihud %>% log, trade_log_return_realized_volatility)] # higher illiquidity ~ higher volatility
 stock_means[, plot(trade_roll_measure, trade_log_return_realized_volatility)] # higher autocorrelation in returns ~ higher volatility
-stock_means[, plot(trade_mkt_impact, trade_log_return_realized_volatility)] # 
+stock_means[, plot(trade_mkt_impact %>% log, trade_log_return_realized_volatility)] # 
 stock_means[, plot(trade_avg_trade_size %>% log, trade_log_return_realized_volatility)] # no statistical effect
 
 # (STOCKS) other graphs
@@ -98,6 +98,8 @@ stock_means[, plot(bid_spread_mean, price_spread_mean)] # higher spread within b
 stock_means[, plot(trade_avg_trade_size %>% log, price_spread_mean)] # unusual: higher trade size ~ lower spread
 stock_means[, plot(trade_avg_trade_size %>% log, total_volume_mean %>% log)] # more depth ~ more aggressive trading
 stock_means[, plot(trade_size_sum %>% log, total_volume_mean %>% log)] # more depth ~ more trading
+
+# VERY SIMILAR OUTCOMES WHEN LOOKING AT stocks_sds TABLE
 
 
 
