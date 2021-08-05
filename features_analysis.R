@@ -2,7 +2,7 @@ library(data.table)
 library(magrittr)
 library(Hmisc)
 library(ggplot2)
-
+library(cluster)
 
 # File load ---------------------------------------------------------------
 
@@ -152,6 +152,7 @@ time_sds_norm <- as.data.table(scale(time_sds))
 
 # drop stock_id, time_id and index
 stock_means_norm[, `:=`(stock_id = NULL, index=NULL, time_id=NULL)]
+time_means_norm[, `:=`(stock_id = NULL, index=NULL, time_id=NULL)]
 
 
 
@@ -160,7 +161,7 @@ stock_means_norm[, `:=`(stock_id = NULL, index=NULL, time_id=NULL)]
 stock_means_dist <- dist(stock_means_norm)
 # stock_sds_dist <- dist(stock_sds_norm)
 
-
+time_means_dist <- dist(time_means_norm)
 
 
 # Cluster Dendrogram with Complete Linkage --------------------------------
@@ -171,7 +172,8 @@ plot(stock_means_hc_c) # around 2 main clusters + stock #29 at height ~50
 # stock_sds_hc_c <- hclust(stock_sds_dist)
 # plot(stock_sds_hc_c) # around 3 main clusters + stock #29
 
-
+time_means_hc_c <- hclust(time_means_dist)
+plot(time_means_hc_c, labels = FALSE) # around 3 clusters
 
 # Cluster Dendrogram with Average Linkage ---------------------------------
 
@@ -181,6 +183,8 @@ plot(stock_means_hc_a) # just one main cluster with stock #29 as an outlier
 # stock_sds_hc_a <- hclust(stock_sds_dist, method = "average")
 # plot(stock_sds_hc_a) # around 2 main clusters + stocks #29 and #71
 
+time_means_hc_a <- hclust(time_means_dist, method = "average")
+plot(time_means_hc_a, labels = FALSE) # 
 
 # Cluster membership ------------------------------------------------------
 
@@ -194,6 +198,12 @@ which(stock_means_memb_c == 4) # stock#67
 
 
 
+time_means_memb_c <- cutree(time_means_hc_c, k = 3)
+time_means_memb_a <- cutree(time_means_hc_a, k = 3)
+
+table(time_means_memb_c, time_means_memb_a) # 
+
+
 # Cluster Means -----------------------------------------------------------
 
 # stocks #29 and #67 are very much different
@@ -202,7 +212,51 @@ as.data.table(aggregate(stock_means_norm, list(stock_means_memb_c), mean)) %>% V
 #' #29: low price, low returns, low volume imbalance, high price_spread, high total_volume,
 #'      high volume_imbalance, high trade_size, order_count, avg_trade_size
 #' #67: high volatility, high returns, high spread_sum
+#' 
 
 
 
+as.data.table(aggregate(time_means_norm, list(time_means_memb_c), mean)) %>% View
 
+
+# Silhouette plot ---------------------------------------------------------
+
+silh1 <- silhouette(cutree(stock_means_hc_c, k = 4), stock_means_dist)
+plot(silh1)
+
+# silh2 <- silhouette(cutree(time_means_hc_c, k = 4), time_means_dist)
+# plot(silh2)
+
+
+
+# Scree plot --------------------------------------------------------------
+
+# STOCKS:
+wss <- (nrow(stock_means_norm)-1)*sum(apply(stock_means_norm, 2, var))
+for (i in 2:10) {
+  wss[i] <- sum(kmeans(stock_means_norm, centers = i)$withinss)
+}
+plot(1:10, wss, type='b', xlab = "Number of clusters", ylab = "Within group SS") # up to 5 clusters may be reasonable
+
+# TIMES
+wss <- (nrow(time_means_norm)-1)*sum(apply(time_means_norm, 2, var))
+for (i in 2:10) {
+  wss[i] <- sum(kmeans(time_means_norm, centers = i)$withinss)
+}
+plot(1:10, wss, type='b', xlab = "Number of clusters", ylab = "Within group SS") # up to 5 clusters may be reasonable
+
+
+# K-Means Clustering ------------------------------------------------------
+
+stock_means_kc <- kmeans(stock_means_norm, 4)
+stock_means_kc
+
+stock_means[, plot(total_volume_mean %>% log, log_return1_realized_volatility, col=stock_means_kc$cluster)]
+
+
+
+time_means_kc <- kmeans(stock_means_norm, 3)
+time_means_kc
+
+time_means[, plot(total_volume_mean %>% log, log_return1_realized_volatility, col=time_means_kc$cluster)]
+time_means[, plot(trade_roll_measure, trade_log_return_realized_volatility, col=time_means_kc$cluster)]
