@@ -25,12 +25,12 @@ features <- readRDS(paste0(getwd(), "/features.RDS")) # 5.6 sec loading time
 
 # stats on features -------------------------------------------------------
 
-# recover stock_id and time_id
-features[, `:=`(
-  stock_id = as.integer(gsub(pattern = "(\\d+)-(\\d+)", replacement = "\\1", x = row_id)),
-  time_id = as.integer(gsub(pattern = "(\\d+)-(\\d+)", replacement = "\\2", x = row_id))
-)]
-features[, row_id := NULL]
+# # recover stock_id and time_id
+# features[, `:=`(
+#   stock_id = as.integer(gsub(pattern = "(\\d+)-(\\d+)", replacement = "\\1", x = row_id)),
+#   time_id = as.integer(gsub(pattern = "(\\d+)-(\\d+)", replacement = "\\2", x = row_id))
+# )]
+# features[, row_id := NULL]
 
 all_stock_ids <- features[, unique(stock_id)]
 all_time_ids <- features[, unique(time_id)]
@@ -39,7 +39,7 @@ all_time_ids <- features[, unique(time_id)]
 features[, .N, by=.(time_id)][N < 112, ]
 
 # and some stocks have less than 3830 time_id's
-features[, .N, by = .(stock_id)][, describe(N)]
+features[, .N, by=.(stock_id)][N < 3830, ]
 
 
 # descriptive stats for each column across all stocks and time id's
@@ -69,10 +69,10 @@ stats_tab
 # grout the data into aggregated tables
 
 stock_means <- features[, lapply(.SD, mean), by = .(stock_id)]
-stock_sds <- features[, lapply(.SD, sd), by = .(stock_id)]
+# stock_sds <- features[, lapply(.SD, sd), by = .(stock_id)]
 
 time_means <- features[, lapply(.SD, mean), by = .(time_id)]
-time_sds <- features[, lapply(.SD, sd), by = .(time_id)]
+# time_sds <- features[, lapply(.SD, sd), by = .(time_id)]
 
 # scatter plots -----------------------------------------------------------
 
@@ -96,11 +96,11 @@ stock_means[, plot(spread_sum, depth_imbalance_sum)] # for the weighted measures
 stock_means[, plot(total_volume_mean %>% log, volume_imbalance_mean %>% log)] # almost linear relationship btw total depth and depth imbalance => one side is always dominating the market
 
 stock_means[, plot(price_spread_mean, trade_amihud)] # greater spread ~ more illiquidity
-stock_means[, plot(bid_spread_mean, ask_spread_mean %>% abs)] # almost linear relationship
-stock_means[, plot(ask_spread_mean %>% abs, price_spread_mean)] # higher spread within buy/sell side ~ higher spread on the market
+stock_means[, plot(bid_spread_mean, ask_spread_mean %>% abs)] # almost linear relationship => there is a minimum tick size between bid1 and bid2; ask1 and ask2
+stock_means[, plot(ask_spread_mean %>% abs, price_spread_mean)] # higher spread within buy/sell side ~ higher spread on the market => different tick sizes for different stocks
 stock_means[, plot(bid_spread_mean, price_spread_mean)] # higher spread within buy/sell side ~ higher spread on the market
 
-stock_means[, plot(trade_avg_trade_size %>% log, price_spread_mean)] # unusual: higher trade size ~ lower spread
+stock_means[, plot(trade_avg_trade_size %>% log, price_spread_mean)] # interesting: higher trade size ~ lower spread
 stock_means[, plot(trade_avg_trade_size %>% log, total_volume_mean %>% log)] # more depth ~ more aggressive trading
 stock_means[, plot(trade_size_sum %>% log, total_volume_mean %>% log)] # more depth ~ more trading
 
@@ -145,10 +145,10 @@ time_means[, plot(trade_size_sum %>% log, total_volume_mean %>% log)] # no obvio
 # Normalization -----------------------------------------------------------
 
 stock_means_norm <- as.data.table(scale(stock_means))
-stock_sds_norm <- as.data.table(scale(stock_sds))
+# stock_sds_norm <- as.data.table(scale(stock_sds))
 
 time_means_norm <- as.data.table(scale(time_means))
-time_sds_norm <- as.data.table(scale(time_sds))
+# time_sds_norm <- as.data.table(scale(time_sds))
 
 # drop stock_id, time_id and index
 stock_means_norm[, `:=`(stock_id = NULL, index=NULL, time_id=NULL)]
@@ -209,7 +209,7 @@ table(time_means_memb_c, time_means_memb_a) #
 # stocks #29 and #67 are very much different
 as.data.table(aggregate(stock_means_norm, list(stock_means_memb_c), mean)) %>% View
 
-#' #29: low price, low returns, low volume imbalance, high price_spread, high total_volume,
+#' #29: low price, low returns, low wap_imbalance, high price_spread, high total_volume,
 #'      high volume_imbalance, high trade_size, order_count, avg_trade_size
 #' #67: high volatility, high returns, high spread_sum
 #' 
