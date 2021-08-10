@@ -59,7 +59,7 @@ stats_tab_t <- transpose(stats_tab)
 colnames(stats_tab_t) <- c("mean", "std", "min", "p05", "p25", "p50", "p75", "p95", "max")
 stats_tab_t <- cbind(names(stats_tab), stats_tab_t)
 colnames(stats_tab_t)[1] <- "feature"
-stats_tab <- stats_tab_t[c(-1,-2, -279, -280),]
+stats_tab <- stats_tab_t[c(-1,-2, -280, -281),]
 rm(stats_tab_t, row_max, row_mean, row_min, row_p05, row_p25, row_p50, row_p75, row_p95, row_std)
 
 stats_tab
