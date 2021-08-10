@@ -296,6 +296,31 @@ time_means_wclust[k_means == 3, histogram(time_id, breaks=20, main="cluster 3")]
 
 
 
+# Correlated features -----------------------------------------------------
+
+# 
+# flatten Correlation Matrix
+# 
+# cormat : matrix of the correlation coefficients
+# pmat : matrix of the correlation p-values
+
+flattenCorrMatrix <- function(cormat, pmat) {
+  ut <- upper.tri(cormat)
+  data.table(
+    row = rownames(cormat)[row(cormat)[ut]],
+    column = rownames(cormat)[col(cormat)[ut]],
+    cor  =(cormat)[ut],
+    p = pmat[ut]
+  )
+}
+
+# correlation table for stocks:
+stock_corr_mat <- rcorr(as.matrix(stock_means_norm))
+stock_corr_tab <- flattenCorrMatrix(stock_corr_mat$r, stock_corr_mat$P)
+
+# correlation table for time_ids:
+time_corr_mat <- rcorr(as.matrix(time_means_norm))
+time_corr_tab <- flattenCorrMatrix(time_corr_mat$r, time_corr_mat$P)
 
 
 
