@@ -88,6 +88,7 @@ stock_means[, plot(trade_mkt_impact %>% log, trade_log_return_realized_volatilit
 stock_means[, plot(trade_avg_trade_size %>% log, trade_log_return_realized_volatility)] # no statistical effect
 stock_means[, plot(depth_imbalance_sum, log_return1_realized_volatility)] # higher depth imbalance ~ higher volatility
 stock_means[, plot(volume_imbalance_mean %>% log, log_return1_realized_volatility)] # unweighted volume imbalance negatively correlates with realized volatility
+stock_means[, plot(vpin, log_return1_realized_volatility)] # no visible relationship
 
 # (STOCKS) other graphs
 stock_means[, plot(price_spread_mean, total_volume_mean %>% log)] # unusual: higher spread ~ lower depth
@@ -103,6 +104,8 @@ stock_means[, plot(bid_spread_mean, price_spread_mean)] # higher spread within b
 stock_means[, plot(trade_avg_trade_size %>% log, price_spread_mean)] # interesting: higher trade size ~ lower spread
 stock_means[, plot(trade_avg_trade_size %>% log, total_volume_mean %>% log)] # more depth ~ more aggressive trading
 stock_means[, plot(trade_size_sum %>% log, total_volume_mean %>% log)] # more depth ~ more trading
+stock_means[, plot(vpin, depth_imbalance_sum)]
+stock_means[, plot(vpin, spread_sum)]
 
 # VERY SIMILAR OUTCOMES WHEN LOOKING AT stocks_sds TABLE
 
@@ -121,6 +124,7 @@ time_means[, plot(trade_mkt_impact %>% log, trade_log_return_realized_volatility
 time_means[, plot(trade_avg_trade_size %>% log, trade_log_return_realized_volatility)] # 
 time_means[, plot(depth_imbalance_sum, log_return1_realized_volatility)] # no visible relationship
 time_means[, plot(volume_imbalance_mean %>% log, log_return1_realized_volatility)] # unweighted volume imbalance negatively correlates with realized volatility
+time_means[, plot(vpin, log_return1_realized_volatility)] # this is interesting: lower volatility for higher vpin
 
 
 # (TIMES) other graphs
@@ -137,8 +141,11 @@ time_means[, plot(bid_spread_mean, price_spread_mean)] # higher spread within bu
 time_means[, plot(trade_avg_trade_size %>% log, price_spread_mean)] # not obvious relationship
 time_means[, plot(trade_avg_trade_size, total_volume_mean)] # no relationship
 time_means[, plot(trade_size_sum %>% log, total_volume_mean %>% log)] # no obvious relationship
-
-# same results for time_sds, but weaker statistically imo
+time_means[, plot(vpin, depth_imbalance_sum)] # no obvious relationship
+time_means[, plot(vpin, spread_sum)] #
+time_means[, plot(vpin, total_volume_mean)] #
+time_means[, plot(vpin, trade_avg_trade_size)] #
+time_means[, plot(vpin, trade_roll_impact %>% log)] # no relationship
 
 
 
