@@ -266,4 +266,12 @@ time_means_kc <- kmeans(time_means_norm, 3)
 time_means_kc
 
 time_means[, plot(total_volume_mean %>% log, log_return1_realized_volatility, col=time_means_kc$cluster)]
-time_means[, plot(trade_roll_measure, trade_log_return_realized_volatility, col=time_means_kc$cluster)]
+time_means[, plot(total_volume_mean %>% log, log_return1_realized_volatility, col=time_means_memb_c)]
+time_means[, plot(total_volume_mean %>% log, log_return1_realized_volatility, col=time_means_memb_a)]
+
+time_means[, plot(trade_avg_trade_size, total_volume_mean, col=time_means_kc$cluster)]
+time_means[, plot(trade_avg_trade_size, total_volume_mean, col=time_means_memb_c)]
+time_means[, plot(trade_avg_trade_size, total_volume_mean, col=time_means_memb_a)]
+
+
+
