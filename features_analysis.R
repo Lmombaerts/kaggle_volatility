@@ -152,6 +152,7 @@ time_means[, plot(vpin, trade_roll_impact %>% log)] # no relationship
 # Normalization -----------------------------------------------------------
 
 stock_means_norm <- as.data.table(scale(stock_means))
+# stock_means_norm <- as.data.table(scale(stock_means[, .(log_return1_realized_volatility, log_returnMidprice_realized_volatility, spread_sum)]))
 # stock_sds_norm <- as.data.table(scale(stock_sds))
 
 time_means_norm <- as.data.table(scale(time_means))
@@ -243,14 +244,14 @@ wss <- (nrow(stock_means_norm)-1)*sum(apply(stock_means_norm, 2, var))
 for (i in 2:10) {
   wss[i] <- sum(kmeans(stock_means_norm, centers = i)$withinss)
 }
-plot(1:10, wss, type='b', xlab = "Number of clusters", ylab = "Within group SS") # up to 5 clusters may be reasonable
+plot(1:10, wss, type='b', xlab = "Number of clusters", ylab = "Within group SS", main="by Stock_ID") # up to 5 clusters may be reasonable
 
 # TIMES
 wss <- (nrow(time_means_norm)-1)*sum(apply(time_means_norm, 2, var))
 for (i in 2:10) {
   wss[i] <- sum(kmeans(time_means_norm, centers = i)$withinss)
 }
-plot(1:10, wss, type='b', xlab = "Number of clusters", ylab = "Within group SS") # up to 5 clusters may be reasonable
+plot(1:10, wss, type='b', xlab = "Number of clusters", ylab = "Within group SS", main="by Time_ID") # up to 5 clusters may be reasonable
 
 
 # K-Means Clustering ------------------------------------------------------
@@ -272,6 +273,31 @@ time_means[, plot(total_volume_mean %>% log, log_return1_realized_volatility, co
 time_means[, plot(trade_avg_trade_size, total_volume_mean, col=time_means_kc$cluster)]
 time_means[, plot(trade_avg_trade_size, total_volume_mean, col=time_means_memb_c)]
 time_means[, plot(trade_avg_trade_size, total_volume_mean, col=time_means_memb_a)]
+
+
+
+
+# add clusters to data ----------------------------------------------------
+
+stock_means_wclust <- cbind(stock_means, data.table(k_means = stock_means_kc$cluster, hc = stock_means_memb_c, ha = stock_means_memb_a))
+
+time_means_wclust <- cbind(time_means, data.table(k_means = time_means_kc$cluster, hc = time_means_memb_c, ha = time_means_memb_a))
+
+
+# check how are clusters distributed across time
+# (there is no pattern in time_id based on the cluster)
+
+time_means_wclust[, .N, by=.(k_means)]
+
+time_means_wclust[k_means == 1, histogram(time_id, breaks=20, main="cluster 1")]
+time_means_wclust[k_means == 2, histogram(time_id, breaks=20, main="cluster 2")]
+time_means_wclust[k_means == 3, histogram(time_id, breaks=20, main="cluster 3")]
+
+
+
+
+
+
 
 
 
