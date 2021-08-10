@@ -323,6 +323,8 @@ time_corr_mat <- rcorr(as.matrix(time_means_norm))
 time_corr_tab <- flattenCorrMatrix(time_corr_mat$r, time_corr_mat$P)
 
 
-
+# select features with very high correlations
+stock_corr_tab[abs(cor) >= 0.99, ] %>% View
+# stock_corr_tab[abs(cor) >= 0.99, ][order(-abs(cor))] %>% View
 
 
