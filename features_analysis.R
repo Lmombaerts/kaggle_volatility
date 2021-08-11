@@ -293,7 +293,13 @@ time_means_wclust[k_means == 1, histogram(time_id, breaks=20, main="cluster 1")]
 time_means_wclust[k_means == 2, histogram(time_id, breaks=20, main="cluster 2")]
 time_means_wclust[k_means == 3, histogram(time_id, breaks=20, main="cluster 3")]
 
+# add clusters to files and save as csv to add to features
+stock_clusters <- data.table(stock_id = stock_means$stock_id, km = stock_means_kc$cluster, hc = stock_means_memb_c, ha = stock_means_memb_a)
 
+time_clusters <- data.table(time_id = time_means$time_id, km = time_means_kc$cluster, hc = time_means_memb_c, ha = time_means_memb_c)
+
+fwrite(stock_clusters, file = paste0(getwd(), "/stock_clusters.csv"))
+fwrite(time_clusters,  file = paste0(getwd(),  "/time_clusters.csv"))
 
 
 # Correlated features -----------------------------------------------------
