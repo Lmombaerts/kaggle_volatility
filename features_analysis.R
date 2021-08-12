@@ -260,7 +260,7 @@ stock_means_kc <- kmeans(stock_means_norm, 4)
 stock_means_kc
 
 stock_means[, plot(total_volume_mean %>% log, log_return1_realized_volatility, col=stock_means_kc$cluster)]
-
+stock_means[, plot(log_return1_std, log_return1_realized_volatility, col=stock_means_kc$cluster)]
 
 
 time_means_kc <- kmeans(time_means_norm, 3)
