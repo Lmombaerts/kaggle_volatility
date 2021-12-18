@@ -133,3 +133,7 @@ dmypy.json
 *.RDS
 *.RData
 *.Rhistory
+
+# Excel files and other Docs
+*.xlsx
+*.rtf
