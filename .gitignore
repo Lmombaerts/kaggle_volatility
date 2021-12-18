@@ -132,3 +132,8 @@ dmypy.json
 # .RData and .RDS files
 *.RDS
 *.RData
+*.Rhistory
+
+# Excel files and other Docs
+*.xlsx
+*.rtf
